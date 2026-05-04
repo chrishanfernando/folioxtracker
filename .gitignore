@@ -32,6 +32,21 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# local database
+local.db
+*.db
+
+# personal data — never commit
+*.xlsx
+*.xls
+*.csv
+
+# editor / tooling local state
+.claude/
+.idea/
+.vscode/
 
 # vercel
 .vercel
