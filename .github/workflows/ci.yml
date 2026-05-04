@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Cancel superseded runs on the same ref.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint, typecheck, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Build-time placeholders — the real secrets are configured per environment.
+      # These exist so module-init code that reads env vars doesn't blow up the build.
+      JWT_SECRET: ci-jwt-secret-not-real
+      CRON_SECRET: ci-cron-secret-not-real
+      TURSO_DATABASE_URL: file:ci.db
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      # Advisory only — the existing baseline has lint debt. Once the baseline
+      # is clean, drop `continue-on-error` so lint regressions block PRs.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
