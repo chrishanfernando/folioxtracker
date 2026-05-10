@@ -3,7 +3,8 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
 import { hashPassword as scryptHash, verifyPassword as scryptVerify } from '@better-auth/utils/password';
 import bcrypt from 'bcryptjs';
-import { db } from '@/db';
+import { inArray, eq } from 'drizzle-orm';
+import { db, schema } from '@/db';
 import { sendVerificationEmail, sendPasswordResetEmail } from '@/lib/email';
 
 function isBcryptHash(hash: string): boolean {
@@ -51,6 +52,37 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    },
+  },
+  user: {
+    deleteUser: {
+      enabled: true,
+      // Cascade portfolio data manually. The auth tables (session, account,
+      // user_settings, profiles) cascade via FK on user.id, but downstream
+      // tables (assets, transactions, prices, categoryTargets,
+      // cmcAccountMappings) reference profiles.id without ON DELETE CASCADE.
+      beforeDelete: async (user) => {
+        const profileRows = await db
+          .select({ id: schema.profiles.id })
+          .from(schema.profiles)
+          .where(eq(schema.profiles.userId, user.id));
+        const profileIds = profileRows.map(p => p.id);
+        if (profileIds.length === 0) return;
+
+        const assetRows = await db
+          .select({ id: schema.assets.id })
+          .from(schema.assets)
+          .where(inArray(schema.assets.profileId, profileIds));
+        const assetIds = assetRows.map(a => a.id);
+
+        if (assetIds.length > 0) {
+          await db.delete(schema.prices).where(inArray(schema.prices.assetId, assetIds));
+          await db.delete(schema.transactions).where(inArray(schema.transactions.assetId, assetIds));
+          await db.delete(schema.assets).where(inArray(schema.assets.id, assetIds));
+        }
+        await db.delete(schema.categoryTargets).where(inArray(schema.categoryTargets.profileId, profileIds));
+        await db.delete(schema.cmcAccountMappings).where(inArray(schema.cmcAccountMappings.profileId, profileIds));
+      },
     },
   },
   trustedOrigins: [baseURL],

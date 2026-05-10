@@ -9,9 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
-import { signOut } from '@/lib/auth-client';
+import { signOut, deleteUser } from '@/lib/auth-client';
 
 interface CmcMapping {
   id: number;
@@ -41,6 +49,14 @@ export default function SettingsPage() {
   const [newProfileId, setNewProfileId] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [polling, setPolling] = useState(false);
+
+  // Account danger zone
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteSummary, setDeleteSummary] = useState<{ profiles: number; assets: number; transactions: number } | null>(null);
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -136,6 +152,48 @@ export default function SettingsPage() {
   async function logout() {
     await signOut();
     router.push('/login');
+  }
+
+  async function openDeleteDialog() {
+    setConfirmEmail('');
+    setConfirmPassword('');
+    setDeleteOpen(true);
+    try {
+      const [summaryRes, methodRes] = await Promise.all([
+        fetch('/api/account/summary'),
+        fetch('/api/account/auth-method'),
+      ]);
+      if (summaryRes.ok) setDeleteSummary(await summaryRes.json());
+      if (methodRes.ok) {
+        const { hasPassword } = await methodRes.json();
+        setHasPassword(hasPassword);
+      }
+    } catch {
+      toast.error('Could not load account details');
+    }
+  }
+
+  async function confirmDelete() {
+    if (confirmEmail.trim().toLowerCase() !== accountEmail.toLowerCase()) {
+      toast.error('Email does not match');
+      return;
+    }
+    if (hasPassword && !confirmPassword) {
+      toast.error('Password required');
+      return;
+    }
+    setDeleting(true);
+    try {
+      const { error } = await deleteUser({ password: hasPassword ? confirmPassword : undefined });
+      if (error) {
+        toast.error(error.message || 'Could not delete account');
+        return;
+      }
+      toast.success('Account deleted');
+      router.push('/login');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -260,7 +318,79 @@ export default function SettingsPage() {
           <Button onClick={saveSettings}>Save Settings</Button>
           <Button variant="outline" onClick={logout}>Logout</Button>
         </div>
+
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
+            <CardDescription>Export or permanently delete your account and all associated data.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-sm">
+                <div className="font-medium">Export your data</div>
+                <p className="text-muted-foreground text-xs">Download a JSON file with your profiles, assets, transactions, and prices.</p>
+              </div>
+              <a href="/api/account/export" download>
+                <Button variant="outline" size="sm">Export</Button>
+              </a>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-sm">
+                <div className="font-medium">Delete account</div>
+                <p className="text-muted-foreground text-xs">Permanent. Removes your sign-in, all profiles, and all transactions.</p>
+              </div>
+              <Button variant="destructive" size="sm" onClick={openDeleteDialog}>Delete</Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete account?</DialogTitle>
+            <DialogDescription>
+              This permanently erases your account and all associated portfolio data. It cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteSummary && (
+            <div className="text-sm rounded border border-destructive/30 bg-destructive/5 p-3">
+              You will lose <strong>{deleteSummary.profiles}</strong> profile{deleteSummary.profiles === 1 ? '' : 's'},{' '}
+              <strong>{deleteSummary.assets}</strong> asset{deleteSummary.assets === 1 ? '' : 's'}, and{' '}
+              <strong>{deleteSummary.transactions}</strong> transaction{deleteSummary.transactions === 1 ? '' : 's'}.
+            </div>
+          )}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Type your email to confirm: <span className="font-mono">{accountEmail}</span></Label>
+              <Input
+                value={confirmEmail}
+                onChange={e => setConfirmEmail(e.target.value)}
+                placeholder={accountEmail}
+                autoComplete="off"
+              />
+            </div>
+            {hasPassword && (
+              <div>
+                <Label className="text-xs">Current password</Label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Delete account'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
