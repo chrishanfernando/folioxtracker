@@ -8,7 +8,7 @@ import { sendVerificationEmail } from '@/lib/auth-client';
 
 export default function VerifyEmailPage() {
   const [status, setStatus] = useState<'idle' | 'sent' | 'error'>('idle');
-  const [email, setEmail] = useState(() =>
+  const [email] = useState(() =>
     typeof window === 'undefined' ? '' : window.localStorage.getItem('pendingVerifyEmail') || ''
   );
 
