@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
+import { requireTransactionOwnership, requireUser } from '@/lib/auth-helpers';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ txId: string }> }
 ) {
   try {
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
+
     const { txId } = await params;
     const id = parseInt(txId);
+
+    const ownership = await requireTransactionOwnership(id, user.id);
+    if (ownership instanceof NextResponse) return ownership;
+
     const body = await request.json();
 
     const existing = await db.select().from(schema.transactions).where(eq(schema.transactions.id, id)).limit(1);
@@ -43,17 +51,18 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ txId: string }> }
 ) {
   try {
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
+
     const { txId } = await params;
     const id = parseInt(txId);
 
-    const existing = await db.select().from(schema.transactions).where(eq(schema.transactions.id, id)).limit(1);
-    if (existing.length === 0) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
-    }
+    const ownership = await requireTransactionOwnership(id, user.id);
+    if (ownership instanceof NextResponse) return ownership;
 
     await db.delete(schema.transactions).where(eq(schema.transactions.id, id));
 

@@ -43,7 +43,10 @@ export interface ClosedHolding {
 }
 
 // Build a map from yahooSymbol → list of all asset IDs that share it (across all profiles).
-// This lets us look up prices stored under any profile's asset ID.
+// This lets us look up prices stored under any profile's asset ID. Prices are
+// keyed by assetId but the asset rows themselves are profile-scoped, so reading
+// every asset row to build this map does not leak data — only asset IDs and
+// yahoo symbols, which are fed into price queries below.
 async function buildYahooSymbolToAssetIds(): Promise<Map<string, number[]>> {
   const allAssets = await db.select({ id: schema.assets.id, yahooSymbol: schema.assets.yahooSymbol }).from(schema.assets);
   const map = new Map<string, number[]>();

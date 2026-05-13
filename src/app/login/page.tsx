@@ -1,89 +1,100 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { signIn } from '@/lib/auth-client';
 
-export default function LoginPage() {
+function LoginForm() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isSetup, setIsSetup] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const [info, setInfo] = useState(params.get('verified') === '1' ? 'Email verified — you can sign in now.' : '');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Check if we need setup on page load
-    fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'check' }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.needsSetup) setIsSetup(true);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setInfo('');
 
-    const res = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, action: isSetup ? 'setup' : 'login' }),
-    });
-
-    const data = await res.json();
+    const result = await signIn.email({ email, password, callbackURL: '/dashboard' });
     setLoading(false);
 
-    if (data.error) {
-      setError(data.error);
+    if (result.error) {
+      const code = result.error.code;
+      if (code === 'EMAIL_NOT_VERIFIED') {
+        setError('Please verify your email before signing in. Check your inbox for the verification link.');
+        return;
+      }
+      setError(result.error.message || 'Sign-in failed');
       return;
     }
-
-    if (data.success) {
-      router.push('/dashboard');
-    }
+    router.push('/dashboard');
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
+  async function handleGoogle() {
+    setLoading(true);
+    setError('');
+    await signIn.social({ provider: 'google', callbackURL: '/dashboard' });
   }
 
   return (
+    <Card className="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle className="text-2xl">Sign in</CardTitle>
+        <CardDescription>Welcome back to Portfolio Tracker.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button type="button" variant="outline" className="w-full" onClick={handleGoogle} disabled={loading}>
+          Continue with Google
+        </Button>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+          <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+        </div>
+
+        <form onSubmit={handleEmailLogin} className="space-y-3">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link href="/forgot-password" className="text-xs text-muted-foreground underline">Forgot?</Link>
+            </div>
+            <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </div>
+          {info && <p className="text-sm text-emerald-600">{info}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading || !email || !password}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </form>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{' '}
+          <Link href="/signup" className="text-foreground underline">Sign up</Link>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Portfolio Tracker</CardTitle>
-          <CardDescription>
-            {isSetup ? 'Create a password to get started' : 'Enter your password to continue'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="password"
-              placeholder={isSetup ? 'Choose a password' : 'Password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoFocus
-            />
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={!password}>
-              {isSetup ? 'Set Password' : 'Login'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

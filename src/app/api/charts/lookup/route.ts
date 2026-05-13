@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import YahooFinance from 'yahoo-finance2';
+import { requireUser } from '@/lib/auth-helpers';
 
 const yf = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
 const FX_SYMBOL = 'AUDUSD=X';
 
 export async function GET(request: NextRequest) {
+  const user = await requireUser();
+  if (user instanceof NextResponse) return user;
+
   const symbol = request.nextUrl.searchParams.get('symbol');
   if (!symbol) {
     return NextResponse.json({ error: 'Missing symbol' }, { status: 400 });

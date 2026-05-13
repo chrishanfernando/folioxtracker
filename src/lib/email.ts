@@ -4,6 +4,8 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
 }
 
+const FROM = process.env.EMAIL_FROM || 'Portfolio Tracker <portfolio@resend.dev>';
+
 export async function sendRebalanceAlert(
   to: string,
   drifts: { category: string; currentPct: number; targetPct: number; driftPct: number }[]
@@ -13,7 +15,7 @@ export async function sendRebalanceAlert(
     .join('');
 
   await getResend().emails.send({
-    from: 'Portfolio Tracker <portfolio@resend.dev>',
+    from: FROM,
     to,
     subject: 'Portfolio Rebalance Alert',
     html: `
@@ -23,6 +25,34 @@ export async function sendRebalanceAlert(
         ${driftRows}
       </table>
       <p>Log in to your portfolio tracker to review and rebalance.</p>
+    `,
+  });
+}
+
+export async function sendVerificationEmail(to: string, url: string) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: 'Verify your email',
+    html: `
+      <h2>Welcome to Portfolio Tracker</h2>
+      <p>Click the link below to verify your email address:</p>
+      <p><a href="${url}">Verify email</a></p>
+      <p>If you didn't sign up, you can ignore this email.</p>
+    `,
+  });
+}
+
+export async function sendPasswordResetEmail(to: string, url: string) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: 'Reset your password',
+    html: `
+      <h2>Password reset</h2>
+      <p>Click the link below to choose a new password. This link expires in 1 hour.</p>
+      <p><a href="${url}">Reset password</a></p>
+      <p>If you didn't request a password reset, you can ignore this email.</p>
     `,
   });
 }

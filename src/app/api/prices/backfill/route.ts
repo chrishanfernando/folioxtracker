@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { eq, asc, desc } from 'drizzle-orm';
 import { fetchHistoricalPrices, fetchCurrentPrices } from '@/lib/prices';
+import { requireUser } from '@/lib/auth-helpers';
 
 export async function POST() {
   try {
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
     const assets = await db.select().from(schema.assets).where(eq(schema.assets.isActive, true));
 
     // Find earliest transaction date

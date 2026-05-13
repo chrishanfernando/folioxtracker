@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
-import { getProfileId } from '@/lib/profile';
+import { requireUser } from '@/lib/auth-helpers';
+import { resolveProfileId } from '@/lib/profile';
 
 export async function GET(request: NextRequest) {
-  const profileId = getProfileId(request);
+  const user = await requireUser();
+  if (user instanceof NextResponse) return user;
+
+  const profileId = await resolveProfileId(request, user.id);
+  if (profileId instanceof NextResponse) return profileId;
 
   const assets = await db.select({
     platform: schema.assets.platform,

@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { eq, asc, desc, inArray } from 'drizzle-orm';
+import { requireAssetOwnership, requireUser } from '@/lib/auth-helpers';
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
+  if (user instanceof NextResponse) return user;
+
   const { id } = await params;
   const assetId = parseInt(id);
+
+  const ownership = await requireAssetOwnership(assetId, user.id);
+  if (ownership instanceof NextResponse) return ownership;
 
   const asset = await db.select().from(schema.assets).where(eq(schema.assets.id, assetId));
   if (asset.length === 0) {

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { eq, desc, inArray } from 'drizzle-orm';
-import { getProfileId } from '@/lib/profile';
+import { requireAssetOwnership, requireUser } from '@/lib/auth-helpers';
+import { resolveProfileId } from '@/lib/profile';
 
 export async function GET(request: NextRequest) {
-  const profileId = getProfileId(request);
+  const user = await requireUser();
+  if (user instanceof NextResponse) return user;
+
+  const profileId = await resolveProfileId(request, user.id);
+  if (profileId instanceof NextResponse) return profileId;
 
   // Get asset IDs for this profile
   const profileAssets = await db.select({ id: schema.assets.id })
@@ -43,8 +48,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const user = await requireUser();
+  if (user instanceof NextResponse) return user;
+
   const body = await request.json();
   const { assetId, date, action, quantity, unitPriceLocal, localCurrency, fxRate, unitPriceAud, splitMultiplier, comment } = body;
+
+  const ownership = await requireAssetOwnership(assetId, user.id);
+  if (ownership instanceof NextResponse) return ownership;
 
   const adjustedQty = quantity * (splitMultiplier || 1);
   const totalAud = Math.abs(unitPriceAud * quantity);

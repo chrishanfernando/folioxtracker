@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { eq, asc, inArray } from 'drizzle-orm';
+import { asc, inArray } from 'drizzle-orm';
 import { calculateHoldings } from '@/lib/calculations';
-import { getProfileId } from '@/lib/profile';
+import { requireUser } from '@/lib/auth-helpers';
+import { resolveProfileId } from '@/lib/profile';
 
 export async function GET(request: NextRequest) {
   try {
-    const profileId = getProfileId(request);
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
+
+    const profileId = await resolveProfileId(request, user.id);
+    if (profileId instanceof NextResponse) return profileId;
+
     const holdings = await calculateHoldings(profileId);
 
     // Sort by market value descending

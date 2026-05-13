@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
+import { signOut } from '@/lib/auth-client';
 
 interface CmcMapping {
   id: number;
@@ -27,8 +29,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [accountEmail, setAccountEmail] = useState('');
   const [lastPriceFetch, setLastPriceFetch] = useState('');
   const [lastRebalanceCheck, setLastRebalanceCheck] = useState('');
   const [lastEmailPoll, setLastEmailPoll] = useState('');
@@ -45,8 +46,9 @@ export default function SettingsPage() {
     fetch('/api/settings')
       .then(r => r.json())
       .then((data) => {
-        setEmail(data.email || '');
+        setEmail(data.notificationEmail || '');
         setEmailNotifications(data.emailNotifications || false);
+        setAccountEmail(data.accountEmail || '');
         setLastPriceFetch(data.lastPriceFetch || '');
         setLastRebalanceCheck(data.lastRebalanceCheck || '');
         setLastEmailPoll(data.lastEmailPoll || '');
@@ -117,22 +119,14 @@ export default function SettingsPage() {
   }
 
   async function saveSettings() {
-    const body: Record<string, unknown> = { email, emailNotifications };
-    if (currentPassword && newPassword) {
-      body.currentPassword = currentPassword;
-      body.newPassword = newPassword;
-    }
-
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ notificationEmail: email, emailNotifications }),
     });
 
     if (res.ok) {
       toast.success('Settings saved');
-      setCurrentPassword('');
-      setNewPassword('');
     } else {
       const data = await res.json();
       toast.error(data.error || 'Failed to save');
@@ -140,7 +134,7 @@ export default function SettingsPage() {
   }
 
   async function logout() {
-    document.cookie = 'session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    await signOut();
     router.push('/login');
   }
 
@@ -151,13 +145,21 @@ export default function SettingsPage() {
       <div className="space-y-6 max-w-lg">
         <Card>
           <CardHeader>
+            <CardTitle>Account</CardTitle>
+            <CardDescription>Signed in as {accountEmail || '…'}.</CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Email Notifications</CardTitle>
             <CardDescription>Receive alerts when portfolio allocation drifts beyond thresholds.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Email Address</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+              <Label>Notification email</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={accountEmail || 'you@example.com'} />
+              <p className="text-xs text-muted-foreground mt-1">Leave blank to use your account email ({accountEmail}).</p>
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -230,17 +232,11 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Change Password</CardTitle>
+            <CardTitle>Password</CardTitle>
+            <CardDescription>To change your password, sign out and use the &quot;Forgot password&quot; flow.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Current Password</Label>
-              <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
-            </div>
-            <div>
-              <Label>New Password</Label>
-              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-            </div>
+          <CardContent>
+            <Link href="/forgot-password" className="text-sm underline">Send password reset email</Link>
           </CardContent>
         </Card>
 

@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchCurrentPrices } from '@/lib/prices';
 import { db, schema } from '@/db';
+import { requireUser } from '@/lib/auth-helpers';
 
 const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
+
     const force = request.nextUrl.searchParams.get('force') === 'true';
 
     if (!force) {

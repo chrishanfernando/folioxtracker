@@ -2,16 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { calculateDrift, calculateBuyRecommendations } from '@/lib/rebalance';
 import { eq, and } from 'drizzle-orm';
-import { getProfileId } from '@/lib/profile';
+import { requireUser } from '@/lib/auth-helpers';
+import { resolveProfileId } from '@/lib/profile';
 
 export async function GET(request: NextRequest) {
-  const profileId = getProfileId(request);
+  const user = await requireUser();
+  if (user instanceof NextResponse) return user;
+
+  const profileId = await resolveProfileId(request, user.id);
+  if (profileId instanceof NextResponse) return profileId;
+
   const drift = await calculateDrift(profileId);
   return NextResponse.json(drift);
 }
 
 export async function POST(request: NextRequest) {
-  const profileId = getProfileId(request);
+  const user = await requireUser();
+  if (user instanceof NextResponse) return user;
+
+  const profileId = await resolveProfileId(request, user.id);
+  if (profileId instanceof NextResponse) return profileId;
+
   const { targets, investAmount } = await request.json();
 
   if (targets) {

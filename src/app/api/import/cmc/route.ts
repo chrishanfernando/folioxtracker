@@ -3,11 +3,16 @@ import { db, schema } from '@/db';
 import { parseCmcCsv } from '@/lib/import-parser';
 import { ASSET_MAP, INACTIVE_ASSETS, CMC_TICKER_MAP } from '@/lib/ticker-map';
 import { eq, and } from 'drizzle-orm';
-import { getProfileId } from '@/lib/profile';
+import { requireUser } from '@/lib/auth-helpers';
+import { resolveProfileId } from '@/lib/profile';
 
 export async function POST(request: NextRequest) {
   try {
-    const profileId = getProfileId(request);
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
+
+    const profileId = await resolveProfileId(request, user.id);
+    if (profileId instanceof NextResponse) return profileId;
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const isPreview = formData.get('preview') === 'true';
