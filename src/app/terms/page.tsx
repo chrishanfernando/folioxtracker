@@ -23,7 +23,7 @@ export default function TermsPage() {
       <p>
         You are responsible for keeping your sign-in credentials secure and
         for all activity that occurs under your account. Notify us
-        immediately at [SUPPORT EMAIL] if you suspect unauthorised access.
+        immediately at chriz999@gmail.com if you suspect unauthorised access.
       </p>
 
       <h2 className="text-xl font-semibold mt-6">3. Acceptable use</h2>
@@ -107,15 +107,15 @@ export default function TermsPage() {
 
       <h2 className="text-xl font-semibold mt-6">11. Governing law</h2>
       <p>
-        These Terms are governed by the laws of [STATE], Australia. The
-        courts of [STATE], Australia have exclusive jurisdiction over any
+        These Terms are governed by the laws of New South Wales, Australia. The
+        courts of New South Wales, Australia have exclusive jurisdiction over any
         dispute arising from these Terms or your use of the service.
       </p>
 
       <h2 className="text-xl font-semibold mt-6">12. Contact</h2>
       <p>
         Questions about these Terms? Email{' '}
-        <a href="mailto:[SUPPORT EMAIL]" className="underline">[SUPPORT EMAIL]</a>.
+        <a href="mailto:chriz999@gmail.com" className="underline">chriz999@gmail.com</a>.
       </p>
     </LegalShell>
   );

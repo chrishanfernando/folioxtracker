@@ -153,7 +153,7 @@ export default function PrivacyPage() {
         bcrypt; both are one-way). Sessions are signed and stored
         server-side. Connections to the application are encrypted with
         HTTPS. No system is perfectly secure — please choose a strong,
-        unique password and notify us at [SUPPORT EMAIL] if you suspect
+        unique password and notify us at chriz999@gmail.com if you suspect
         unauthorised access.
       </p>
 
@@ -175,7 +175,7 @@ export default function PrivacyPage() {
       <h2 className="text-xl font-semibold mt-6">11. Contact</h2>
       <p>
         For privacy questions or to exercise the rights above, email{' '}
-        <a href="mailto:[SUPPORT EMAIL]" className="underline">[SUPPORT EMAIL]</a>.
+        <a href="mailto:chriz999@gmail.com" className="underline">chriz999@gmail.com</a>.
       </p>
     </LegalShell>
   );
