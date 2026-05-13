@@ -21,18 +21,31 @@ const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [activeProfileId, setActiveProfileIdState] = useState<number>(1);
+  // 0 = not yet resolved; profileFetch omits the x-profile-id header in this
+  // state so the server falls back to the user's first owned profile rather
+  // than 404-ing on a default that might not belong to this user.
+  const [activeProfileId, setActiveProfileIdState] = useState<number>(0);
 
   const refreshProfiles = useCallback(async () => {
     const res = await fetch('/api/profiles');
+    if (!res.ok) return;
     const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return;
     setProfiles(data);
+    // Ensure the active id belongs to the current user. If localStorage holds
+    // an id from a previous session (different user), fall back to the first
+    // profile the API returned.
+    setActiveProfileIdState((current) => {
+      const stored = parseInt(localStorage.getItem('activeProfileId') || '');
+      const candidate = !Number.isNaN(stored) ? stored : current;
+      const valid = data.some((p: { id: number }) => p.id === candidate);
+      const chosen = valid ? candidate : data[0].id;
+      if (chosen !== candidate) localStorage.setItem('activeProfileId', String(chosen));
+      return chosen;
+    });
   }, []);
 
   useEffect(() => {
-    // Load from localStorage
-    const stored = localStorage.getItem('activeProfileId');
-    if (stored) setActiveProfileIdState(parseInt(stored) || 1);
     refreshProfiles();
   }, [refreshProfiles]);
 
@@ -43,7 +56,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const profileFetch = useCallback((url: string, options?: RequestInit) => {
     const headers = new Headers(options?.headers);
-    headers.set('x-profile-id', String(activeProfileId));
+    if (activeProfileId > 0) headers.set('x-profile-id', String(activeProfileId));
     return fetch(url, { ...options, headers });
   }, [activeProfileId]);
 

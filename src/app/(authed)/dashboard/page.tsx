@@ -60,13 +60,13 @@ export default function DashboardPage() {
         profileFetch('/api/assets/options'),
         profileFetch('/api/rebalance'),
       ]);
-      const json = await dashRes.json();
-      const opts = await optsRes.json();
-      const rebalData = await rebalRes.json();
-      setData(json);
-      setPlatforms(opts.platforms || []);
-      setCategories(opts.categories || []);
-      const drifting = (rebalData as { category: string; needsRebalance: boolean }[])
+      const json = dashRes.ok ? await dashRes.json() : null;
+      const opts = optsRes.ok ? await optsRes.json() : {};
+      const rebalData = rebalRes.ok ? await rebalRes.json() : [];
+      setData(json && json.summary ? json : null);
+      setPlatforms(Array.isArray(opts.platforms) ? opts.platforms : []);
+      setCategories(Array.isArray(opts.categories) ? opts.categories : []);
+      const drifting = (Array.isArray(rebalData) ? rebalData : [] as { category: string; needsRebalance: boolean }[])
         .filter((d) => d.needsRebalance)
         .map((d) => d.category);
       // Browser notification if new drift detected
@@ -150,6 +150,26 @@ export default function DashboardPage() {
   if (loading) return <AppShell><div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Loading...</p></div></AppShell>;
 
   const s = data?.summary;
+
+  if (!s || s.holdings.length === 0) {
+    return (
+      <AppShell>
+        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <BarChart3 className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-semibold mb-2">No holdings yet</p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Add your first transaction to start tracking your portfolio.
+            </p>
+            <Link href="/transactions/new">
+              <Button>Add transaction</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

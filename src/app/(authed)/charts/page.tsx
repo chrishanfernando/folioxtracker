@@ -33,8 +33,8 @@ export default function ChartsPage() {
   useEffect(() => {
     setLoading(true);
     profileFetch('/api/holdings/charts')
-      .then(r => r.json())
-      .then(data => setCharts(data || []))
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setCharts(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
   }, [activeProfileId]);
 

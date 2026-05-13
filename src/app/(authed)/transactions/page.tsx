@@ -32,8 +32,8 @@ export default function TransactionsPage() {
   useEffect(() => {
     setLoading(true);
     profileFetch('/api/transactions')
-      .then(r => r.json())
-      .then(setTransactions)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setTransactions(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
   }, [activeProfileId]);
 
