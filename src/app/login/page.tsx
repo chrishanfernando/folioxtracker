@@ -91,10 +91,17 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}>
         <LoginForm />
       </Suspense>
+      <p className="mt-6 text-xs text-muted-foreground">
+        <Link href="/disclaimer" className="hover:text-foreground">Disclaimer</Link>
+        <span className="mx-2">·</span>
+        <Link href="/terms" className="hover:text-foreground">Terms</Link>
+        <span className="mx-2">·</span>
+        <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+      </p>
     </div>
   );
 }

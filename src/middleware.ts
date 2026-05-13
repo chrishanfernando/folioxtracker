@@ -8,6 +8,9 @@ const PUBLIC_PATHS = [
   '/verify-email',
   '/forgot-password',
   '/reset-password',
+  '/privacy',
+  '/terms',
+  '/disclaimer',
   '/api/auth',
   '/api/cron',
 ];
