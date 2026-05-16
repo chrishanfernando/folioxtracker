@@ -94,6 +94,13 @@ export default function SignupPage() {
             </Button>
           </form>
 
+          <p className="text-center text-xs text-muted-foreground leading-relaxed">
+            By creating an account you agree to our{' '}
+            <Link href="/terms" className="underline">Terms</Link>,{' '}
+            <Link href="/privacy" className="underline">Privacy Policy</Link>, and{' '}
+            <Link href="/disclaimer" className="underline">Disclaimer</Link>.
+          </p>
+
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{' '}
             <Link href="/login" className="text-foreground underline">Sign in</Link>

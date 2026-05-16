@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { and, eq } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth-helpers';
+import { ensureProfile } from '@/lib/profile';
 
 export async function GET() {
   const user = await requireUser();
   if (user instanceof NextResponse) return user;
 
+  await ensureProfile(user.id);
   const profiles = await db.select().from(schema.profiles).where(eq(schema.profiles.userId, user.id));
   return NextResponse.json(profiles);
 }

@@ -49,16 +49,17 @@ export default function RebalancePage() {
   useEffect(() => {
     setLoading(true);
     profileFetch('/api/rebalance')
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : [])
       .then((data) => {
-        setDrift(data);
-        const t = data.map((d: CategoryAllocation) => ({
+        const arr: CategoryAllocation[] = Array.isArray(data) ? data : [];
+        setDrift(arr);
+        const t = arr.map((d) => ({
           category: d.category,
           targetPct: d.targetPct,
           threshold: d.threshold,
         }));
         setTargets(t);
-        setTargetInputs(t.map((d: { targetPct: number }) => d.targetPct > 0 ? String(d.targetPct) : ''));
+        setTargetInputs(t.map((d) => d.targetPct > 0 ? String(d.targetPct) : ''));
       })
       .finally(() => setLoading(false));
   }, [activeProfileId]);

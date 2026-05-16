@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { Archive } from 'lucide-react';
+import { Archive, List } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useProfile } from '@/components/profile-context';
 
 interface Holding {
@@ -45,15 +46,35 @@ export default function HoldingsPage() {
   useEffect(() => {
     setLoading(true);
     profileFetch('/api/holdings')
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : { holdings: [], closed: [] })
       .then(data => {
-        setHoldings(data.holdings || []);
-        setClosed(data.closed || []);
+        setHoldings(Array.isArray(data?.holdings) ? data.holdings : []);
+        setClosed(Array.isArray(data?.closed) ? data.closed : []);
       })
       .finally(() => setLoading(false));
   }, [activeProfileId]);
 
   if (loading) return <AppShell><p className="text-muted-foreground">Loading...</p></AppShell>;
+
+  if (holdings.length === 0 && closed.length === 0) {
+    return (
+      <AppShell>
+        <h1 className="text-2xl font-bold mb-6">Holdings</h1>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <List className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-semibold mb-2">No holdings yet</p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Add your first transaction to start tracking your portfolio.
+            </p>
+            <Link href="/transactions/new">
+              <Button>Add transaction</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
