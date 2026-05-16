@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart3, AlertTriangle } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart3, AlertTriangle, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { TimeFrameFilter, filterByTimeFrame, type TimeFrame } from '@/components/time-frame-filter';
@@ -55,7 +55,13 @@ export default function DashboardPage() {
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [driftCategories, setDriftCategories] = useState<string[]>([]);
+  const [driftDismissed, setDriftDismissed] = useState(false);
   const [activeCategoryIdx, setActiveCategoryIdx] = useState<number | null>(null);
+
+  // Restore drift-banner dismissal for the current browser session.
+  useEffect(() => {
+    if (sessionStorage.getItem('driftDismissed') === '1') setDriftDismissed(true);
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -186,20 +192,33 @@ export default function DashboardPage() {
       </div>
 
       {/* Drift Alert */}
-      {driftCategories.length > 0 && (
-        <Link href="/rebalance" className="block mb-6">
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 hover:bg-red-500/15 transition-colors">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
-              <div>
-                <p className="font-semibold text-red-500 text-sm">Portfolio out of balance</p>
-                <p className="text-xs text-muted-foreground">
-                  {driftCategories.join(', ')} {driftCategories.length === 1 ? 'has' : 'have'} drifted beyond threshold. Tap to rebalance.
-                </p>
+      {driftCategories.length > 0 && !driftDismissed && (
+        <div className="relative mb-6">
+          <Link href="/rebalance" className="block">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 pr-12 hover:bg-red-500/15 transition-colors">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+                <div>
+                  <p className="font-semibold text-red-500 text-sm">Portfolio out of balance</p>
+                  <p className="text-xs text-muted-foreground">
+                    {driftCategories.join(', ')} {driftCategories.length === 1 ? 'has' : 'have'} drifted beyond threshold. Tap to rebalance.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setDriftDismissed(true);
+              sessionStorage.setItem('driftDismissed', '1');
+            }}
+            aria-label="Dismiss"
+            className="absolute top-2 right-2 p-1.5 rounded-md text-red-500/70 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       )}
 
       {/* Summary Cards */}

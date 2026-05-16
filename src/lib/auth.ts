@@ -27,6 +27,28 @@ async function hashPassword(password: string): Promise<string> {
 
 const baseURL = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+// In development, trust the request's own origin if it's on a private LAN.
+// This lets you test from another device on the same WiFi (e.g. phone hitting
+// http://192.168.x.x:3000) without hard-coding every machine's IP.
+// In production, only the configured baseURL is trusted.
+const isDev = process.env.NODE_ENV !== 'production';
+const PRIVATE_HOST_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/;
+function resolveTrustedOrigins(request?: Request): string[] {
+  const fixed = [baseURL];
+  if (!isDev || !request) return fixed;
+  const origin = request.headers.get('origin') || request.headers.get('referer');
+  if (!origin) return fixed;
+  try {
+    const url = new URL(origin);
+    if (PRIVATE_HOST_RE.test(url.hostname)) {
+      return [...fixed, `${url.protocol}//${url.host}`];
+    }
+  } catch {
+    // ignore
+  }
+  return fixed;
+}
+
 export const auth = betterAuth({
   baseURL,
   secret: process.env.BETTER_AUTH_SECRET || process.env.JWT_SECRET || 'dev-secret-change-in-production',
@@ -87,7 +109,7 @@ export const auth = betterAuth({
       },
     },
   },
-  trustedOrigins: [baseURL],
+  trustedOrigins: resolveTrustedOrigins,
   plugins: [nextCookies()],
 });
 

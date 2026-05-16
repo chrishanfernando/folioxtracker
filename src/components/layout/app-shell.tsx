@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart, Brain } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart, Brain, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/components/profile-context';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { signOut } from '@/lib/auth-client';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,12 +22,26 @@ const navItems = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { profiles, activeProfileId, activeProfile, setActiveProfileId, refreshProfiles } = useProfile();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNewProfile, setShowNewProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameText, setRenameText] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function logout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await signOut();
+      router.push('/login');
+    } catch {
+      toast.error('Failed to log out');
+      setLoggingOut(false);
+    }
+  }
 
   async function renameProfile() {
     if (!renamingId || !renameText.trim()) return;
@@ -152,6 +167,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
+
+          {/* Logout — pinned to the bottom of the sidebar */}
+          <div className="px-2 mt-2 pt-2 border-t">
+            <button
+              onClick={logout}
+              disabled={loggingOut}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <LogOut className="h-4 w-4" />
+              {loggingOut ? 'Logging out…' : 'Log out'}
+            </button>
+          </div>
         </div>
       </aside>
 

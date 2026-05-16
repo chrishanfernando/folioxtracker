@@ -98,6 +98,11 @@ export function weightedMer(etfs: EtfRecommendation[]): number {
   return etfs.reduce((sum, e) => sum + (e.allocationPct / 100) * e.mer, 0);
 }
 
+// Defensive assets = bonds; everything else (equities, REITs, EM, tech) is growth.
+export function etfKind(etf: EtfRecommendation): 'growth' | 'defensive' {
+  return etf.category.toLowerCase().includes('bond') ? 'defensive' : 'growth';
+}
+
 // Tier definitions — allocations aligned with:
 // Vanguard Diversified ETF series (VDCO/VDBA/VDGR/VDHG), Morningstar AU Target Allocation Index,
 // and Stockspot portfolio methodology.
@@ -302,10 +307,10 @@ export const TIER_PROFILES: Record<RiskTier, TierProfile> = {
         ticker: 'NDQ',
         name: 'BetaShares NASDAQ 100 ETF',
         category: 'US Tech',
-        allocationPct: 20,
+        allocationPct: 15,
         mer: 0.48,
         aum: '~$5B',
-        rationale: 'Top 100 NASDAQ companies. Highest 10-year growth return of any mainstream AU-listed ETF. Higher MER is justified by the return premium for long-horizon investors.',
+        rationale: 'Top 100 NASDAQ companies. Highest 10-year growth return of any mainstream AU-listed ETF. Sized at 15% — a meaningful overweight to US tech without letting a single-sector bet dominate the portfolio.',
       },
       {
         ticker: 'VGE',
@@ -320,10 +325,10 @@ export const TIER_PROFILES: Record<RiskTier, TierProfile> = {
         ticker: 'VAF',
         name: 'Vanguard Australian Fixed Interest ETF',
         category: 'AU Bonds',
-        allocationPct: 5,
+        allocationPct: 10,
         mer: 0.10,
         aum: '~$2B',
-        rationale: 'Minimal defensive buffer. Even 5% bonds meaningfully reduces worst-case single-month losses without sacrificing long-term return.',
+        rationale: 'Defensive buffer sized to match the VDHG benchmark (10%). Bonds dampen worst-case drawdowns in equity bear markets while leaving 90% of the portfolio in growth assets.',
       },
     ],
   },

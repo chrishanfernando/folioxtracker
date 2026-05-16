@@ -37,6 +37,28 @@ export async function ensureBenchmarkAssetExists(yahooSymbol: string): Promise<n
   return result[0].id;
 }
 
+/**
+ * Fetch a single live AUD price for an ad-hoc Yahoo symbol, without requiring
+ * the asset to exist in the local DB. Used by the rebalance recommender when
+ * suggesting purchases of ETFs the user doesn't yet hold.
+ */
+export async function fetchLivePriceAud(yahooSymbol: string): Promise<number> {
+  try {
+    if (yahooSymbol.endsWith('.AX') || yahooSymbol.endsWith('-AUD')) {
+      const quote = await yf.quote(yahooSymbol);
+      return quote.regularMarketPrice ?? 0;
+    }
+    const [quote, audUsd] = await Promise.all([
+      yf.quote(yahooSymbol),
+      getAudUsdRate(),
+    ]);
+    const priceUsd = quote.regularMarketPrice ?? 0;
+    return audUsd > 0 ? priceUsd / audUsd : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function fetchCurrentPrices(): Promise<{ symbol: string; priceAud: number; priceUsd?: number; fxRate?: number }[]> {
   const assets = await db.select().from(schema.assets).where(
     or(eq(schema.assets.isActive, true), eq(schema.assets.category, 'Benchmark'))
