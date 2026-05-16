@@ -125,6 +125,17 @@ export const settings = sqliteTable('settings', {
   lastEmailPoll: text('last_email_poll'),
 });
 
+export const riskProfiles = sqliteTable('risk_profiles', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  profileId: integer('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  riskScore: integer('risk_score').notNull(),
+  riskTier: text('risk_tier').notNull(),
+  answers: text('answers').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 export const cmcAccountMappings = sqliteTable('cmc_account_mappings', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   cmcAccountNumber: text('cmc_account_number').notNull().unique(),

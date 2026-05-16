@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart } from 'lucide-react';
+import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/components/profile-context';
 import { useState } from 'react';
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/charts', label: 'Charts', icon: LineChart },
   { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { href: '/rebalance', label: 'Rebalance', icon: Target },
+  { href: '/risk-profile', label: 'Risk Profile', icon: Brain },
   { href: '/import', label: 'Import', icon: Upload },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
