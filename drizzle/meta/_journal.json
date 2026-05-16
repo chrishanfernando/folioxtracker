@@ -22,6 +22,13 @@
       "when": 1778928750431,
       "tag": "0002_cold_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1778932944121,
+      "tag": "0003_ambitious_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }
