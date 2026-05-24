@@ -5,6 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceDot,
 } from 'recharts';
 import { formatDate } from '@/lib/format';
+import { useChartColors } from '@/lib/theme-colors';
 
 export interface ChartMarker {
   date: string;
@@ -22,6 +23,7 @@ interface ZoomableChartProps {
 }
 
 export function ZoomableChart({ data, lines, yFormatter, tooltipFormatter, height = 300, markers }: ZoomableChartProps) {
+  const chartColors = useChartColors();
   const [left, setLeft] = useState<string | null>(null);
   const [right, setRight] = useState<string | null>(null);
   const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export function ZoomableChart({ data, lines, yFormatter, tooltipFormatter, heigh
           onMouseMove={handleMouseMove as never}
           onMouseUp={handleMouseUp}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+          <CartesianGrid strokeDasharray="3 3" stroke={chartColors.gridColor} />
           <XAxis dataKey="date" tick={{ fontSize: 12 }} tickFormatter={(v) => { const [y, m] = v.split('-'); return `${m}-${y}`; }} />
           <YAxis tick={{ fontSize: 12 }} tickFormatter={yFormatter} />
           <Tooltip
@@ -165,7 +167,7 @@ export function ZoomableChart({ data, lines, yFormatter, tooltipFormatter, heigh
               x1={refAreaLeft}
               x2={refAreaRight}
               stroke="none"
-              fill="#3b82f6"
+              fill={chartColors.refAreaColor}
               fillOpacity={0.15}
             />
           )}

@@ -13,8 +13,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { ZoomableChart } from '@/components/zoomable-chart';
 import { AnimatedNumber } from '@/components/animated-number';
 import { useProfile } from '@/components/profile-context';
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+import { useChartColors } from '@/lib/theme-colors';
 
 interface DashboardData {
   summary: {
@@ -46,6 +45,7 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const { profileFetch, activeProfileId } = useProfile();
+  const chartColors = useChartColors();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -309,9 +309,9 @@ export default function DashboardPage() {
             <ZoomableChart
               data={filterByTimeFrame(data?.history || [], timeFrame)}
               lines={[
-                { dataKey: 'value', stroke: '#3b82f6', strokeWidth: 2, name: 'Value' },
-                { dataKey: 'cost', stroke: '#666', strokeWidth: 1, strokeDasharray: '5 5', name: 'Cost Basis' },
-                { dataKey: 'benchmarkValue', stroke: '#f59e0b', strokeWidth: 1.5, name: 'Benchmark' },
+                { dataKey: 'value', stroke: chartColors.lineColors.value, strokeWidth: 2, name: 'Value' },
+                { dataKey: 'cost', stroke: chartColors.lineColors.cost, strokeWidth: 1, strokeDasharray: '5 5', name: 'Cost Basis' },
+                { dataKey: 'benchmarkValue', stroke: chartColors.lineColors.benchmark, strokeWidth: 1.5, name: 'Benchmark' },
               ]}
               yFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : `$${v.toFixed(0)}`}
               tooltipFormatter={(v) => [`$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, '']}
@@ -345,7 +345,7 @@ export default function DashboardPage() {
                       {s?.categoryBreakdown.map((_, i) => (
                         <Cell
                           key={i}
-                          fill={COLORS[i % COLORS.length]}
+                          fill={chartColors.pieColors[i % chartColors.pieColors.length]}
                           stroke="none"
                           opacity={activeCategoryIdx === null || activeCategoryIdx === i ? 1 : 0.35}
                           style={{ transition: 'opacity 150ms' }}
@@ -358,13 +358,13 @@ export default function DashboardPage() {
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-4">
                     <span
                       className="text-sm font-medium truncate max-w-full"
-                      style={{ color: COLORS[activeCategoryIdx % COLORS.length] }}
+                      style={{ color: chartColors.pieColors[activeCategoryIdx % chartColors.pieColors.length] }}
                     >
                       {s.categoryBreakdown[activeCategoryIdx].category}
                     </span>
                     <span
                       className="text-base font-semibold tabular-nums"
-                      style={{ color: COLORS[activeCategoryIdx % COLORS.length] }}
+                      style={{ color: chartColors.pieColors[activeCategoryIdx % chartColors.pieColors.length] }}
                     >
                       ${Number(s.categoryBreakdown[activeCategoryIdx].value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </span>
@@ -381,7 +381,7 @@ export default function DashboardPage() {
                   >
                     <span
                       className="inline-block h-2.5 w-2.5 rounded-sm shrink-0"
-                      style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                      style={{ backgroundColor: chartColors.pieColors[i % chartColors.pieColors.length] }}
                     />
                     <span className="truncate flex-1">{item.category}</span>
                     <span className="tabular-nums text-muted-foreground">

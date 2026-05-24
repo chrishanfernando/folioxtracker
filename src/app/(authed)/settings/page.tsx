@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { Trash2, Info } from 'lucide-react';
 import { signOut, deleteUser } from '@/lib/auth-client';
 import { useProfile } from '@/components/profile-context';
+import { ThemeSelector } from '@/components/theme-selector';
 
 interface CmcMapping {
   id: number;
@@ -242,6 +243,16 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
       <div className="space-y-6 max-w-lg">
+        <Card>
+          <CardHeader>
+            <CardTitle>Appearance</CardTitle>
+            <CardDescription>Choose a colour theme for the app.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ThemeSelector />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Account</CardTitle>

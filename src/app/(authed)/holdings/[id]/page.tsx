@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Pencil, Trash2, Check, X, MessageSquare } from 'lucide-react';
 import { formatDate } from '@/lib/format';
 import { useProfile } from '@/components/profile-context';
+import { useChartColors } from '@/lib/theme-colors';
 
 interface Transaction {
   id: number;
@@ -46,6 +47,7 @@ export default function AssetDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { profileFetch } = useProfile();
+  const chartColors = useChartColors();
   const [data, setData] = useState<AssetDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('ALL');
@@ -284,7 +286,7 @@ export default function AssetDetailPage() {
           <ZoomableChart
             data={filterByTimeFrame(priceHistory, timeFrame)}
             lines={[
-              { dataKey: 'priceAud', stroke: '#3b82f6', strokeWidth: 2 },
+              { dataKey: 'priceAud', stroke: chartColors.lineColors.value, strokeWidth: 2 },
             ]}
             yFormatter={(v) => `$${v.toFixed(2)}`}
             tooltipFormatter={(v) => [`$${Number(v).toFixed(2)}`, 'Price (AUD)']}
