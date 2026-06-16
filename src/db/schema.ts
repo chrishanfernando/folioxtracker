@@ -147,4 +147,5 @@ export const cmcAccountMappings = sqliteTable('cmc_account_mappings', {
   cmcAccountNumber: text('cmc_account_number').notNull().unique(),
   profileId: integer('profile_id').notNull().references(() => profiles.id),
   label: text('label'),
+  verified: integer('verified', { mode: 'boolean' }).notNull().default(false),
 });

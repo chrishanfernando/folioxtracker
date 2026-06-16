@@ -1,0 +1,1 @@
+ALTER TABLE `cmc_account_mappings` ADD `verified` integer DEFAULT false NOT NULL;

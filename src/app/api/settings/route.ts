@@ -4,6 +4,7 @@ import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth-helpers';
 import { apiError, parseJsonBody } from '@/lib/api-error';
+import { env } from '@/lib/env';
 
 export async function GET() {
   const user = await requireUser();
@@ -17,6 +18,7 @@ export async function GET() {
     accountEmail: user.email,
     notificationEmail: userSettings[0]?.notificationEmail ?? '',
     emailNotifications: userSettings[0]?.emailNotifications ?? false,
+    emailPollEnabled: env.EMAIL_POLL_ENABLED,
   });
 }
 
