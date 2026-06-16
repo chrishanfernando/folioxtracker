@@ -1,19 +1,22 @@
 import { Resend } from 'resend';
+import { env } from '@/lib/env';
 
 function getResend() {
-  return new Resend(process.env.RESEND_API_KEY);
+  if (!env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not set.');
+  }
+  return new Resend(env.RESEND_API_KEY);
 }
 
 function getFrom() {
-  const from = process.env.EMAIL_FROM;
-  if (!from) {
+  if (!env.EMAIL_FROM) {
     throw new Error('EMAIL_FROM is not set. Configure a verified sender (e.g. "Portfolio Tracker <no-reply@mail.yourdomain.com>").');
   }
-  return from;
+  return env.EMAIL_FROM;
 }
 
 function getReplyTo() {
-  return process.env.EMAIL_REPLY_TO;
+  return env.EMAIL_REPLY_TO;
 }
 
 export async function sendRebalanceAlert(
@@ -28,7 +31,7 @@ export async function sendRebalanceAlert(
     .map(d => `  - ${d.category}: ${d.currentPct.toFixed(1)}% (target ${d.targetPct.toFixed(1)}%, drift ${d.driftPct > 0 ? '+' : ''}${d.driftPct.toFixed(1)}%)`)
     .join('\n');
 
-  const unsubscribeMailto = process.env.EMAIL_UNSUBSCRIBE_MAILTO;
+  const unsubscribeMailto = env.EMAIL_UNSUBSCRIBE_MAILTO;
 
   await getResend().emails.send({
     from: getFrom(),

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth-helpers';
+import { apiError, parseJsonBody } from '@/lib/api-error';
 
 export async function GET() {
   const user = await requireUser();
@@ -22,30 +24,39 @@ export async function GET() {
   });
 }
 
+const settingsPutSchema = z.object({
+  notificationEmail: z.string().trim().max(255).optional().nullable(),
+  emailNotifications: z.boolean().optional(),
+}).strict();
+
 export async function PUT(request: NextRequest) {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+  try {
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
 
-  const body = await request.json();
-  const notificationEmail: string | null = (body.notificationEmail || '').trim() || null;
-  const emailNotifications: boolean = !!body.emailNotifications;
+    const body = await parseJsonBody(request, settingsPutSchema);
+    const notificationEmail: string | null = (body.notificationEmail || '').trim() || null;
+    const emailNotifications: boolean = !!body.emailNotifications;
 
-  const existing = await db.select({ userId: schema.userSettings.userId })
-    .from(schema.userSettings)
-    .where(eq(schema.userSettings.userId, user.id))
-    .limit(1);
+    const existing = await db.select({ userId: schema.userSettings.userId })
+      .from(schema.userSettings)
+      .where(eq(schema.userSettings.userId, user.id))
+      .limit(1);
 
-  if (existing.length === 0) {
-    await db.insert(schema.userSettings).values({
-      userId: user.id,
-      notificationEmail,
-      emailNotifications,
-    });
-  } else {
-    await db.update(schema.userSettings)
-      .set({ notificationEmail, emailNotifications })
-      .where(eq(schema.userSettings.userId, user.id));
+    if (existing.length === 0) {
+      await db.insert(schema.userSettings).values({
+        userId: user.id,
+        notificationEmail,
+        emailNotifications,
+      });
+    } else {
+      await db.update(schema.userSettings)
+        .set({ notificationEmail, emailNotifications })
+        .where(eq(schema.userSettings.userId, user.id));
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return apiError(error, { route: '/api/settings', method: 'PUT' });
   }
-
-  return NextResponse.json({ success: true });
 }

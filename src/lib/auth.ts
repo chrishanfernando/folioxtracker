@@ -5,6 +5,7 @@ import { hashPassword as scryptHash, verifyPassword as scryptVerify } from '@bet
 import bcrypt from 'bcryptjs';
 import { inArray, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { env } from '@/lib/env';
 import { sendVerificationEmail, sendPasswordResetEmail } from '@/lib/email';
 
 function isBcryptHash(hash: string): boolean {
@@ -25,13 +26,13 @@ async function hashPassword(password: string): Promise<string> {
   return scryptHash(password);
 }
 
-const baseURL = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const baseURL = env.BETTER_AUTH_URL;
 
 // In development, trust the request's own origin if it's on a private LAN.
 // This lets you test from another device on the same WiFi (e.g. phone hitting
 // http://192.168.x.x:3000) without hard-coding every machine's IP.
 // In production, only the configured baseURL is trusted.
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = !env.IS_PROD;
 const PRIVATE_HOST_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/;
 function resolveTrustedOrigins(request?: Request): string[] {
   const fixed = [baseURL];
@@ -51,7 +52,7 @@ function resolveTrustedOrigins(request?: Request): string[] {
 
 export const auth = betterAuth({
   baseURL,
-  secret: process.env.BETTER_AUTH_SECRET || process.env.JWT_SECRET || 'dev-secret-change-in-production',
+  secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: 'sqlite' }),
   emailAndPassword: {
     enabled: true,
@@ -72,8 +73,8 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
     },
   },
   user: {

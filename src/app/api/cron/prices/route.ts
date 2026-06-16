@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchCurrentPrices } from '@/lib/prices';
+import { checkCronSecret } from '@/lib/cron-auth';
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = checkCronSecret(request);
+  if (denied) return denied;
 
   try {
     const results = await fetchCurrentPrices();
