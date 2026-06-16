@@ -29,6 +29,13 @@
       "when": 1778932944121,
       "tag": "0003_ambitious_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1781622993056,
+      "tag": "0004_launch_hardening_cron_runs",
+      "breakpoints": true
     }
   ]
 }

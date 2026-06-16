@@ -1,32 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchCurrentPrices } from '@/lib/prices';
-import { db, schema } from '@/db';
 import { requireUser } from '@/lib/auth-helpers';
-
-const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+import { resolveProfileId } from '@/lib/profile';
+import { checkCooldown, PRICE_FETCH_COOLDOWN_MS } from '@/lib/rate-limit';
+import { apiError } from '@/lib/api-error';
 
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
     if (user instanceof NextResponse) return user;
 
-    const force = request.nextUrl.searchParams.get('force') === 'true';
-
-    if (!force) {
-      const settings = await db.select().from(schema.settings).limit(1);
-      const lastFetch = settings[0]?.lastPriceFetch;
-      if (lastFetch) {
-        const elapsed = Date.now() - new Date(lastFetch).getTime();
-        if (elapsed < COOLDOWN_MS) {
-          return NextResponse.json({ success: true, skipped: true, message: 'Prices fetched recently' });
-        }
-      }
+    const cooldown = checkCooldown('price-fetch', user.id, PRICE_FETCH_COOLDOWN_MS);
+    if (!cooldown.allowed) {
+      const res = NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      res.headers.set('retry-after', Math.ceil(cooldown.retryAfterMs / 1000).toString());
+      return res;
     }
 
-    const results = await fetchCurrentPrices();
+    const resolved = await resolveProfileId(request, user.id);
+    if (resolved instanceof NextResponse) return resolved;
+
+    const results = await fetchCurrentPrices(resolved);
     return NextResponse.json({ success: true, prices: results });
   } catch (error) {
-    console.error('Price fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch prices' }, { status: 500 });
+    return apiError(error, { route: '/api/prices/fetch', method: 'POST' });
   }
 }

@@ -6,6 +6,7 @@ import { importCmcTransactions } from '@/lib/cmc-import';
 import { db, schema } from '@/db';
 import { env } from '@/lib/env';
 import { eq } from 'drizzle-orm';
+import { recordCronRun } from '@/lib/cron-runs';
 
 interface PollResult {
   processed: number;
@@ -119,8 +120,11 @@ export async function pollCmcEmails(): Promise<PollResult> {
     result.errors.push(`IMAP connection error: ${err}`);
   }
 
-  // Update last poll timestamp
-  await db.update(schema.settings).set({ lastEmailPoll: new Date().toISOString() });
+  await recordCronRun('email_poll', result.errors.length > 0 ? 'error' : 'ok', {
+    processed: result.processed,
+    skipped: result.skipped,
+    errors: result.errors.length,
+  });
 
   return result;
 }

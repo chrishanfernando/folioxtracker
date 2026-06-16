@@ -37,11 +37,17 @@ export async function PATCH(request: NextRequest) {
     if (body.benchmarkSymbol) {
       const symbol = body.benchmarkSymbol.toUpperCase();
       const assetId = await ensureBenchmarkAssetExists(symbol);
-      // Backfill 2 years of prices for the benchmark to ensure history works
+      // Backfill 2 years of prices for the benchmark to ensure history works.
+      // Benchmark assets are pinned to profile id=1 by ensureBenchmarkAssetExists.
       const twoYearsAgo = new Date();
       twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
       const startDate = twoYearsAgo.toISOString().split('T')[0];
-      await fetchHistoricalPrices(assetId, symbol, symbol.endsWith('.AX'), startDate, '1d');
+      await fetchHistoricalPrices(
+        1,
+        { id: assetId, yahooSymbol: symbol, isAud: symbol.endsWith('.AX') },
+        startDate,
+        '1d',
+      );
     }
 
     const result = await db.update(schema.profiles)
