@@ -56,6 +56,6 @@ export async function POST() {
     return NextResponse.json({ success: true, results });
   } catch (error) {
     console.error('Backfill error:', error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db, schema } from '@/db';
 import { eq, desc, inArray } from 'drizzle-orm';
 import { requireAssetOwnership, requireUser } from '@/lib/auth-helpers';
 import { resolveProfileId } from '@/lib/profile';
+import { aud, isoDate, optionalString, qtyDecimal, transactionAction, assetIdRef } from '@/lib/validation/primitives';
+import { apiError, parseJsonBody } from '@/lib/api-error';
 
 export async function GET(request: NextRequest) {
   const user = await requireUser();
@@ -47,33 +50,50 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(transactions);
 }
 
+const transactionCreateSchema = z.object({
+  assetId: assetIdRef,
+  date: isoDate,
+  action: transactionAction,
+  quantity: qtyDecimal,
+  unitPriceLocal: aud.nullable().optional(),
+  localCurrency: optionalString(8).nullable(),
+  fxRate: z.number().positive().finite().nullable().optional(),
+  unitPriceAud: aud,
+  splitMultiplier: z.number().positive().finite().optional(),
+  comment: optionalString(1000).nullable(),
+}).strict();
+
 export async function POST(request: NextRequest) {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+  try {
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
 
-  const body = await request.json();
-  const { assetId, date, action, quantity, unitPriceLocal, localCurrency, fxRate, unitPriceAud, splitMultiplier, comment } = body;
+    const body = await parseJsonBody(request, transactionCreateSchema);
 
-  const ownership = await requireAssetOwnership(assetId, user.id);
-  if (ownership instanceof NextResponse) return ownership;
+    const ownership = await requireAssetOwnership(body.assetId, user.id);
+    if (ownership instanceof NextResponse) return ownership;
 
-  const adjustedQty = quantity * (splitMultiplier || 1);
-  const totalAud = Math.abs(unitPriceAud * quantity);
+    const splitMultiplier = body.splitMultiplier ?? 1;
+    const adjustedQty = body.quantity * splitMultiplier;
+    const totalAud = Math.abs(body.unitPriceAud * body.quantity);
 
-  const result = await db.insert(schema.transactions).values({
-    assetId,
-    date,
-    action,
-    quantity,
-    unitPriceLocal,
-    localCurrency,
-    fxRate,
-    unitPriceAud,
-    splitMultiplier: splitMultiplier || 1,
-    adjustedQty,
-    totalAud,
-    comment,
-  }).returning();
+    const result = await db.insert(schema.transactions).values({
+      assetId: body.assetId,
+      date: body.date,
+      action: body.action,
+      quantity: body.quantity,
+      unitPriceLocal: body.unitPriceLocal ?? null,
+      localCurrency: body.localCurrency ?? null,
+      fxRate: body.fxRate ?? null,
+      unitPriceAud: body.unitPriceAud,
+      splitMultiplier,
+      adjustedQty,
+      totalAud,
+      comment: body.comment ?? null,
+    }).returning();
 
-  return NextResponse.json(result[0]);
+    return NextResponse.json(result[0]);
+  } catch (error) {
+    return apiError(error, { route: '/api/transactions', method: 'POST' });
+  }
 }

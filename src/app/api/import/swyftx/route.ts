@@ -117,6 +117,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Swyftx import error:', error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

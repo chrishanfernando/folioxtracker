@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db, schema } from '@/db';
 import { calculateDrift, calculateBuyRecommendations } from '@/lib/rebalance';
 import { eq, and } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth-helpers';
 import { resolveProfileId } from '@/lib/profile';
+import { aud, sanitizedString } from '@/lib/validation/primitives';
+import { apiError, ValidationError, parseJsonBody } from '@/lib/api-error';
 
 export async function GET(request: NextRequest) {
   const user = await requireUser();
@@ -16,44 +19,61 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(drift);
 }
 
+const targetSchema = z.object({
+  category: sanitizedString(64),
+  targetPct: z.number().min(0).max(100).finite(),
+  threshold: z.number().min(0).max(100).finite().optional(),
+});
+
+const rebalancePostSchema = z.object({
+  targets: z.array(targetSchema).optional(),
+  investAmount: aud.optional(),
+}).strict().refine(b => b.targets || b.investAmount !== undefined, {
+  message: 'Either `targets` or `investAmount` is required',
+});
+
 export async function POST(request: NextRequest) {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+  try {
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
 
-  const profileId = await resolveProfileId(request, user.id);
-  if (profileId instanceof NextResponse) return profileId;
+    const profileId = await resolveProfileId(request, user.id);
+    if (profileId instanceof NextResponse) return profileId;
 
-  const { targets, investAmount } = await request.json();
+    const body = await parseJsonBody(request, rebalancePostSchema);
 
-  if (targets) {
-    for (const target of targets) {
-      const existing = await db.select().from(schema.categoryTargets)
-        .where(and(
-          eq(schema.categoryTargets.category, target.category),
-          eq(schema.categoryTargets.profileId, profileId),
-        ));
+    if (body.targets) {
+      for (const target of body.targets) {
+        const existing = await db.select().from(schema.categoryTargets)
+          .where(and(
+            eq(schema.categoryTargets.category, target.category),
+            eq(schema.categoryTargets.profileId, profileId),
+          ));
 
-      if (existing.length > 0) {
-        await db.update(schema.categoryTargets)
-          .set({ targetPct: target.targetPct, threshold: target.threshold || 5 })
-          .where(eq(schema.categoryTargets.id, existing[0].id));
-      } else {
-        await db.insert(schema.categoryTargets).values({
-          profileId,
-          category: target.category,
-          targetPct: target.targetPct,
-          threshold: target.threshold || 5,
-        });
+        if (existing.length > 0) {
+          await db.update(schema.categoryTargets)
+            .set({ targetPct: target.targetPct, threshold: target.threshold ?? 5 })
+            .where(eq(schema.categoryTargets.id, existing[0].id));
+        } else {
+          await db.insert(schema.categoryTargets).values({
+            profileId,
+            category: target.category,
+            targetPct: target.targetPct,
+            threshold: target.threshold ?? 5,
+          });
+        }
       }
+      const drift = await calculateDrift(profileId);
+      return NextResponse.json(drift);
     }
-    const drift = await calculateDrift(profileId);
-    return NextResponse.json(drift);
-  }
 
-  if (investAmount) {
-    const result = await calculateBuyRecommendations(investAmount, profileId);
-    return NextResponse.json(result);
-  }
+    if (body.investAmount !== undefined) {
+      const result = await calculateBuyRecommendations(body.investAmount, profileId);
+      return NextResponse.json(result);
+    }
 
-  return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    throw new ValidationError([{ path: '(root)', message: 'Invalid request' }]);
+  } catch (error) {
+    return apiError(error, { route: '/api/rebalance', method: 'POST' });
+  }
 }

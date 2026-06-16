@@ -4,6 +4,7 @@ import * as pdfParse from 'pdf-parse';
 import { parseCmcConfirmationPdf } from '@/lib/cmc-email-parser';
 import { importCmcTransactions } from '@/lib/cmc-import';
 import { db, schema } from '@/db';
+import { env } from '@/lib/env';
 import { eq } from 'drizzle-orm';
 
 interface PollResult {
@@ -14,10 +15,14 @@ interface PollResult {
 }
 
 export async function pollCmcEmails(): Promise<PollResult> {
-  const host = process.env.IMAP_HOST;
-  const port = parseInt(process.env.IMAP_PORT || '993');
-  const user = process.env.IMAP_USER;
-  const pass = process.env.IMAP_PASSWORD;
+  if (!env.EMAIL_POLL_ENABLED) {
+    return { processed: 0, imported: 0, skipped: 0, errors: ['IMAP feature disabled'] };
+  }
+
+  const host = env.IMAP_HOST;
+  const port = env.IMAP_PORT;
+  const user = env.IMAP_USER;
+  const pass = env.IMAP_PASSWORD;
 
   if (!host || !user || !pass) {
     return { processed: 0, imported: 0, skipped: 0, errors: ['IMAP not configured'] };

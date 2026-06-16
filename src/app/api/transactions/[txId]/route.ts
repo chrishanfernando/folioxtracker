@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { requireTransactionOwnership, requireUser } from '@/lib/auth-helpers';
+import { aud, isoDate, optionalString, qtyDecimal, transactionAction, positiveInt } from '@/lib/validation/primitives';
+import { apiError, NotFoundError, parseJsonBody } from '@/lib/api-error';
+
+const transactionPatchSchema = z.object({
+  date: isoDate.optional(),
+  action: transactionAction.optional(),
+  quantity: qtyDecimal.optional(),
+  unitPriceAud: aud.optional(),
+  source: optionalString(64),
+  comment: optionalString(1000).nullable(),
+}).strict();
+
+const paramsSchema = z.object({ txId: positiveInt });
 
 export async function PATCH(
   request: NextRequest,
@@ -11,17 +25,16 @@ export async function PATCH(
     const user = await requireUser();
     if (user instanceof NextResponse) return user;
 
-    const { txId } = await params;
-    const id = parseInt(txId);
+    const { txId: id } = paramsSchema.parse(await params);
 
     const ownership = await requireTransactionOwnership(id, user.id);
     if (ownership instanceof NextResponse) return ownership;
 
-    const body = await request.json();
+    const body = await parseJsonBody(request, transactionPatchSchema);
 
     const existing = await db.select().from(schema.transactions).where(eq(schema.transactions.id, id)).limit(1);
     if (existing.length === 0) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+      throw new NotFoundError('Transaction not found');
     }
 
     const updates: Record<string, unknown> = {};
@@ -45,8 +58,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Transaction update error:', error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return apiError(error, { route: '/api/transactions/[txId]', method: 'PATCH' });
   }
 }
 
@@ -58,8 +70,7 @@ export async function DELETE(
     const user = await requireUser();
     if (user instanceof NextResponse) return user;
 
-    const { txId } = await params;
-    const id = parseInt(txId);
+    const { txId: id } = paramsSchema.parse(await params);
 
     const ownership = await requireTransactionOwnership(id, user.id);
     if (ownership instanceof NextResponse) return ownership;
@@ -68,7 +79,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Transaction delete error:', error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return apiError(error, { route: '/api/transactions/[txId]', method: 'DELETE' });
   }
 }

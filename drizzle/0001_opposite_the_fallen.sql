@@ -1,3 +1,23 @@
+-- Bootstrap pre-formalisation tables. The original `profiles` and
+-- `cmc_account_mappings` were created via `drizzle-kit push` before formal
+-- migrations existed in this repo. On fresh databases the ALTER TABLE below
+-- would fail because `profiles` doesn't exist yet. IF NOT EXISTS makes this
+-- safe on prod DBs (where these tables already exist) and on fresh ones.
+CREATE TABLE IF NOT EXISTS `profiles` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`name` text NOT NULL,
+	`created_at` text NOT NULL DEFAULT '2024-01-01'
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `cmc_account_mappings` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`cmc_account_number` text NOT NULL,
+	`profile_id` integer NOT NULL,
+	`label` text,
+	FOREIGN KEY (`profile_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS `cmc_account_mappings_cmc_account_number_unique` ON `cmc_account_mappings` (`cmc_account_number`);--> statement-breakpoint
 CREATE TABLE `account` (
 	`id` text PRIMARY KEY NOT NULL,
 	`account_id` text NOT NULL,
@@ -67,7 +87,10 @@ CREATE TABLE `__new_settings` (
 	`last_email_poll` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_settings`("id", "password_hash", "email", "email_notifications", "last_price_fetch", "last_rebalance_check", "last_email_poll") SELECT "id", "password_hash", "email", "email_notifications", "last_price_fetch", "last_rebalance_check", "last_email_poll" FROM `settings`;--> statement-breakpoint
+-- On fresh DBs the original `settings` table from 0000 lacks `last_email_poll`
+-- (it was added via out-of-band `drizzle-kit push` historically). NULL it here;
+-- fresh DBs always have an empty settings table at this point so no data loss.
+INSERT INTO `__new_settings`("id", "password_hash", "email", "email_notifications", "last_price_fetch", "last_rebalance_check", "last_email_poll") SELECT "id", "password_hash", "email", "email_notifications", "last_price_fetch", "last_rebalance_check", NULL FROM `settings`;--> statement-breakpoint
 DROP TABLE `settings`;--> statement-breakpoint
 ALTER TABLE `__new_settings` RENAME TO `settings`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;
