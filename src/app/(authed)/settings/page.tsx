@@ -61,6 +61,7 @@ export default function SettingsPage() {
   const [savingBenchmark, setSavingBenchmark] = useState(false);
 
   // CMC account mappings
+  const [emailPollEnabled, setEmailPollEnabled] = useState(false);
   const [mappings, setMappings] = useState<CmcMapping[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [newAccountNumber, setNewAccountNumber] = useState('');
@@ -83,13 +84,15 @@ export default function SettingsPage() {
         setEmail(data.notificationEmail || '');
         setEmailNotifications(data.emailNotifications || false);
         setAccountEmail(data.accountEmail || '');
+        const enabled = !!data.emailPollEnabled;
+        setEmailPollEnabled(enabled);
+        if (enabled) loadMappings();
       });
     fetch('/api/cron/status')
       .then(r => r.json())
       .then((data: CronStatusRow[]) => {
         if (Array.isArray(data)) setCronStatus(data);
       });
-    loadMappings();
   }, []);
 
   useEffect(() => {
@@ -330,6 +333,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {emailPollEnabled && (
         <Card>
           <CardHeader>
             <CardTitle>CMC Account Mappings</CardTitle>
@@ -385,6 +389,7 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -404,12 +409,14 @@ export default function SettingsPage() {
             <p>Last price fetch: {findRun(cronStatus, 'prices') || 'Never'}</p>
             <p>Last price backfill: {findRun(cronStatus, 'prices_backfill') || 'Never'}</p>
             <p>Last rebalance check: {findRun(cronStatus, 'rebalance') || 'Never'}</p>
-            <div className="flex items-center gap-2">
-              <p>Last email poll: {findRun(cronStatus, 'email_poll') || 'Never'}</p>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={pollNow} disabled={polling}>
-                {polling ? 'Polling...' : 'Poll Now'}
-              </Button>
-            </div>
+            {emailPollEnabled && (
+              <div className="flex items-center gap-2">
+                <p>Last email poll: {findRun(cronStatus, 'email_poll') || 'Never'}</p>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={pollNow} disabled={polling}>
+                  {polling ? 'Polling...' : 'Poll Now'}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

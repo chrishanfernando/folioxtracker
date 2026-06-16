@@ -49,14 +49,14 @@
 
 ## 6. IMAP feature flag + CMC mapping verification
 
-- [ ] 6.1 Add `EMAIL_POLL_ENABLED` to `src/lib/env.ts`; default `"false"`.
-- [ ] 6.2 In `src/app/api/cron/email/route.ts`, short-circuit with `{ skipped: "feature disabled" }` when the flag is not `"true"`.
-- [ ] 6.3 Drizzle migration: add `verified BOOLEAN NOT NULL DEFAULT 0` to `cmc_account_mappings`; backfill all existing rows to `false`.
-- [ ] 6.4 Add `POST /api/settings/cmc-accounts/[id]/verify` accepting a PDF whose embedded account number must match the mapping; sets `verified = true`.
-- [ ] 6.5 Update `src/lib/email-poll.ts` to only ingest into a profile whose mapping has `verified = true`; otherwise leave unread and record skip.
-- [ ] 6.6 Wrap `simpleParser(msg.source)` and `pdf(attachment.content)` calls in `Promise.race([..., timeout(10_000)])`; skip with error on timeout.
-- [ ] 6.7 Cap attachment buffer length to 5 MB; cap raw message source to 20 MB; skip oversized messages.
-- [ ] 6.8 Hide the CMC mappings UI in `src/app/(authed)/settings/page.tsx` when the feature flag is off; API routes return 503.
+- [x] 6.1 Add `EMAIL_POLL_ENABLED` to `src/lib/env.ts`; default `"false"`.
+- [x] 6.2 In `src/app/api/cron/email/route.ts`, short-circuit with `{ skipped: "feature disabled" }` when the flag is not `"true"`.
+- [x] 6.3 Drizzle migration: add `verified BOOLEAN NOT NULL DEFAULT 0` to `cmc_account_mappings`; backfill all existing rows to `false`.
+- [x] 6.4 Add `POST /api/settings/cmc-accounts/[id]/verify` accepting a PDF whose embedded account number must match the mapping; sets `verified = true`.
+- [x] 6.5 Update `src/lib/email-poll.ts` to only ingest into a profile whose mapping has `verified = true`; otherwise leave unread and record skip.
+- [x] 6.6 Wrap `simpleParser(msg.source)` and `pdf(attachment.content)` calls in `Promise.race([..., timeout(10_000)])`; skip with error on timeout.
+- [x] 6.7 Cap attachment buffer length to 5 MB; cap raw message source to 20 MB; skip oversized messages.
+- [x] 6.8 Hide the CMC mappings UI in `src/app/(authed)/settings/page.tsx` when the feature flag is off; API routes return 503.
 
 ## 7. File-upload validation
 
