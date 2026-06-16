@@ -5,7 +5,7 @@ import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, CheckCircle, Download, AlertTriangle, X } from 'lucide-react';
+import { Upload, CheckCircle, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProfile } from '@/components/profile-context';
 import { formatDate } from '@/lib/format';
@@ -122,7 +122,6 @@ export default function ImportPage() {
   const [swyftxFile, setSwyftxFile] = useState<File | null>(null);
   const [irFile, setIrFile] = useState<File | null>(null);
   const [importing, setImporting] = useState<string | null>(null);
-  const [backfilling, setBackfilling] = useState(false);
   const [excelResult, setExcelResult] = useState<ImportResult | null>(null);
   const [cmcResult, setCmcResult] = useState<ImportResult | null>(null);
   const [stakeResult, setStakeResult] = useState<ImportResult | null>(null);
@@ -174,25 +173,6 @@ export default function ImportPage() {
       toast.error('Import failed');
     } finally {
       setImporting(null);
-    }
-  }
-
-  async function handleBackfill() {
-    setBackfilling(true);
-    try {
-      const res = await profileFetch('/api/prices/backfill', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        const ok = data.results.filter((r: { weekly: number; daily: number }) => r.weekly > 0 || r.daily > 0).length;
-        const total = data.results.reduce((sum: number, r: { weekly: number; daily: number }) => sum + r.weekly + r.daily, 0);
-        toast.success(`Fetched ${total.toLocaleString()} prices for ${ok}/${data.results.length} assets`);
-      } else {
-        toast.error(data.error || 'Backfill failed');
-      }
-    } catch {
-      toast.error('Backfill failed');
-    } finally {
-      setBackfilling(false);
     }
   }
 
@@ -310,21 +290,6 @@ export default function ImportPage() {
           irPreview, setIrPreview, irResult, setIrResult,
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Fetch Historical Prices</CardTitle>
-            <CardDescription>
-              Download historical prices from Yahoo Finance for all active assets,
-              going back to your earliest transaction. This may take a minute.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleBackfill} disabled={backfilling} className="w-full">
-              <Download className="h-4 w-4 mr-2" />
-              {backfilling ? 'Fetching prices... (this takes ~1 min)' : 'Fetch Historical Prices from Yahoo Finance'}
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </AppShell>
   );

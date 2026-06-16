@@ -120,9 +120,15 @@ export const settings = sqliteTable('settings', {
   passwordHash: text('password_hash'),
   email: text('email'),
   emailNotifications: integer('email_notifications', { mode: 'boolean' }).default(false),
-  lastPriceFetch: text('last_price_fetch'),
-  lastRebalanceCheck: text('last_rebalance_check'),
-  lastEmailPoll: text('last_email_poll'),
+});
+
+// Last-run state per cron job. One row per job_name (e.g. 'prices',
+// 'prices_backfill', 'rebalance', 'email_poll'). last_summary is a JSON blob.
+export const cronRuns = sqliteTable('cron_runs', {
+  jobName: text('job_name').primaryKey(),
+  lastRunAt: text('last_run_at').notNull(),
+  lastStatus: text('last_status').notNull(),
+  lastSummary: text('last_summary'),
 });
 
 export const riskProfiles = sqliteTable('risk_profiles', {

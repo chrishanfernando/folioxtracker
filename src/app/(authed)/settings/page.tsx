@@ -36,15 +36,25 @@ interface Profile {
   benchmarkSymbol?: string;
 }
 
+interface CronStatusRow {
+  jobName: string;
+  lastRunAt: string;
+  lastStatus: string;
+  lastSummary: unknown;
+}
+
+function findRun(rows: CronStatusRow[], jobName: string): string | null {
+  const row = rows.find(r => r.jobName === jobName);
+  return row ? row.lastRunAt : null;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { activeProfileId, profileFetch } = useProfile();
   const [email, setEmail] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
-  const [lastPriceFetch, setLastPriceFetch] = useState('');
-  const [lastRebalanceCheck, setLastRebalanceCheck] = useState('');
-  const [lastEmailPoll, setLastEmailPoll] = useState('');
+  const [cronStatus, setCronStatus] = useState<CronStatusRow[]>([]);
 
   // Benchmark
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('');
@@ -73,9 +83,11 @@ export default function SettingsPage() {
         setEmail(data.notificationEmail || '');
         setEmailNotifications(data.emailNotifications || false);
         setAccountEmail(data.accountEmail || '');
-        setLastPriceFetch(data.lastPriceFetch || '');
-        setLastRebalanceCheck(data.lastRebalanceCheck || '');
-        setLastEmailPoll(data.lastEmailPoll || '');
+      });
+    fetch('/api/cron/status')
+      .then(r => r.json())
+      .then((data: CronStatusRow[]) => {
+        if (Array.isArray(data)) setCronStatus(data);
       });
     loadMappings();
   }, []);
@@ -165,7 +177,9 @@ export default function SettingsPage() {
         if (data.errors?.length > 0) {
           data.errors.forEach((e: string) => toast.error(e));
         }
-        setLastEmailPoll(new Date().toISOString());
+        const statusRes = await fetch('/api/cron/status');
+        const status: CronStatusRow[] = await statusRes.json();
+        if (Array.isArray(status)) setCronStatus(status);
       } else {
         toast.error(data.error || 'Poll failed');
       }
@@ -387,10 +401,11 @@ export default function SettingsPage() {
             <CardTitle>System Info</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>Last price fetch: {lastPriceFetch || 'Never'}</p>
-            <p>Last rebalance check: {lastRebalanceCheck || 'Never'}</p>
+            <p>Last price fetch: {findRun(cronStatus, 'prices') || 'Never'}</p>
+            <p>Last price backfill: {findRun(cronStatus, 'prices_backfill') || 'Never'}</p>
+            <p>Last rebalance check: {findRun(cronStatus, 'rebalance') || 'Never'}</p>
             <div className="flex items-center gap-2">
-              <p>Last email poll: {lastEmailPoll || 'Never'}</p>
+              <p>Last email poll: {findRun(cronStatus, 'email_poll') || 'Never'}</p>
               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={pollNow} disabled={polling}>
                 {polling ? 'Polling...' : 'Poll Now'}
               </Button>

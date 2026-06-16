@@ -31,21 +31,21 @@
 
 ## 4. Per-user + per-profile scoping of price fetch
 
-- [ ] 4.1 Change `fetchCurrentPrices` in `src/lib/prices.ts` to take a required `profileId` and select only assets where `profile_id = profileId AND is_active = true`.
-- [ ] 4.2 Change `fetchHistoricalPrices` to take a `profileId` plus an asset filter, with the same scoping.
-- [ ] 4.3 Update `POST /api/prices/fetch` to resolve the active profile via `src/lib/profile.ts`, then call `fetchCurrentPrices(activeProfileId)`.
-- [ ] 4.4 Replace the global `settings.lastPriceFetch` cooldown with an in-memory `Map<userId, lastFetchAt>` (60 s) in `src/lib/rate-limit.ts`; return 429 when exceeded.
-- [ ] 4.5 Delete `src/app/api/prices/backfill/route.ts` (user-facing). Return HTTP 410 from a stub if the path still routes.
-- [ ] 4.6 Add `src/app/api/cron/prices/backfill/route.ts` gated by `CRON_SECRET`; iterate profiles serially with a 250 ms sleep between Yahoo calls; record into `cron_runs`.
-- [ ] 4.7 Update `/api/cron/prices` (`src/app/api/cron/prices/route.ts`) to iterate profiles and call the scoped fetcher for each.
+- [x] 4.1 Change `fetchCurrentPrices` in `src/lib/prices.ts` to take a required `profileId` and select only assets where `profile_id = profileId AND is_active = true`.
+- [x] 4.2 Change `fetchHistoricalPrices` to take a `profileId` plus an asset filter, with the same scoping.
+- [x] 4.3 Update `POST /api/prices/fetch` to resolve the active profile via `src/lib/profile.ts`, then call `fetchCurrentPrices(activeProfileId)`.
+- [x] 4.4 Replace the global `settings.lastPriceFetch` cooldown with an in-memory `Map<userId, lastFetchAt>` (60 s) in `src/lib/rate-limit.ts`; return 429 when exceeded.
+- [x] 4.5 Delete `src/app/api/prices/backfill/route.ts` (user-facing). Return HTTP 410 from a stub if the path still routes.
+- [x] 4.6 Add `src/app/api/cron/prices/backfill/route.ts` gated by `CRON_SECRET`; iterate profiles serially with a 250 ms sleep between Yahoo calls; record into `cron_runs`.
+- [x] 4.7 Update `/api/cron/prices` (`src/app/api/cron/prices/route.ts`) to iterate profiles and call the scoped fetcher for each.
 
 ## 5. Settings hygiene + cron_runs
 
-- [ ] 5.1 Add `WHERE` clauses (`.where(eq(settings.id, 1))`) to every `db.update(settings).set(...)` call (audit `src/lib/prices.ts`, `src/lib/email-poll.ts`, `src/lib/rebalance.ts`, route handlers).
-- [ ] 5.2 Drizzle migration: create `cron_runs` table with `job_name PK`, `last_run_at`, `last_status`, `last_summary` (JSON text).
-- [ ] 5.3 Drizzle migration: drop columns `last_price_fetch`, `last_rebalance_check`, `last_email_poll` from `settings`.
-- [ ] 5.4 Update `GET /api/settings` to stop returning the dropped columns; add `GET /api/cron/status` returning the `cron_runs` rows.
-- [ ] 5.5 Update the `/settings` page to read cron status from the new endpoint.
+- [x] 5.1 Add `WHERE` clauses (`.where(eq(settings.id, 1))`) to every `db.update(settings).set(...)` call (audit `src/lib/prices.ts`, `src/lib/email-poll.ts`, `src/lib/rebalance.ts`, route handlers). *(Satisfied: all three legacy writers now write to `cron_runs` instead; no remaining settings UPDATEs in `src/`.)*
+- [x] 5.2 Drizzle migration: create `cron_runs` table with `job_name PK`, `last_run_at`, `last_status`, `last_summary` (JSON text).
+- [x] 5.3 Drizzle migration: drop columns `last_price_fetch`, `last_rebalance_check`, `last_email_poll` from `settings`.
+- [x] 5.4 Update `GET /api/settings` to stop returning the dropped columns; add `GET /api/cron/status` returning the `cron_runs` rows.
+- [x] 5.5 Update the `/settings` page to read cron status from the new endpoint.
 
 ## 6. IMAP feature flag + CMC mapping verification
 

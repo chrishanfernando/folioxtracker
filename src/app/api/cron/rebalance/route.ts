@@ -4,10 +4,13 @@ import { sendRebalanceAlert } from '@/lib/email';
 import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { checkCronSecret } from '@/lib/cron-auth';
+import { recordCronRun } from '@/lib/cron-runs';
 
 export async function GET(request: NextRequest) {
   const denied = checkCronSecret(request);
   if (denied) return denied;
+
+  let notified = 0;
 
   try {
     // Walk every user with notifications enabled, evaluate drift per profile,
@@ -21,7 +24,6 @@ export async function GET(request: NextRequest) {
       .innerJoin(schema.user, eq(schema.user.id, schema.userSettings.userId))
       .where(eq(schema.userSettings.emailNotifications, true));
 
-    let notified = 0;
     for (const sub of subscribers) {
       const profiles = await db.select({ id: schema.profiles.id })
         .from(schema.profiles)
@@ -39,15 +41,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Track when the global cron last ran (single-row settings, id=1).
-    await db.update(schema.settings)
-      .set({ lastRebalanceCheck: new Date().toISOString() })
-      .where(eq(schema.settings.id, 1));
-
+    await recordCronRun('rebalance', 'ok', { subscribers: subscribers.length, notified });
     return NextResponse.json({ success: true, notified });
   } catch (error) {
     console.error('Rebalance check error:', error);
+    await recordCronRun('rebalance', 'error', { notified });
     return NextResponse.json({ error: 'Failed' }, { status: 500 });
   }
 }
-

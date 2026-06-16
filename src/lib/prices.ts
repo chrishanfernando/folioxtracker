@@ -1,6 +1,6 @@
 import YahooFinance from 'yahoo-finance2';
 import { db, schema } from '@/db';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { format } from 'date-fns';
 
 const yf = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
@@ -59,12 +59,19 @@ export async function fetchLivePriceAud(yahooSymbol: string): Promise<number> {
   }
 }
 
-export async function fetchCurrentPrices(): Promise<{ symbol: string; priceAud: number; priceUsd?: number; fxRate?: number }[]> {
+export interface PriceFetchResult {
+  symbol: string;
+  priceAud: number;
+  priceUsd?: number;
+  fxRate?: number;
+}
+
+export async function fetchCurrentPrices(profileId: number): Promise<PriceFetchResult[]> {
   const assets = await db.select().from(schema.assets).where(
-    or(eq(schema.assets.isActive, true), eq(schema.assets.category, 'Benchmark'))
+    and(eq(schema.assets.profileId, profileId), eq(schema.assets.isActive, true))
   );
   const audUsdRate = await getAudUsdRate();
-  const results: { symbol: string; priceAud: number; priceUsd?: number; fxRate?: number }[] = [];
+  const results: PriceFetchResult[] = [];
   const today = format(new Date(), 'yyyy-MM-dd');
 
   for (const asset of assets) {
@@ -111,21 +118,42 @@ export async function fetchCurrentPrices(): Promise<{ symbol: string; priceAud: 
     }
   }
 
-  await db.update(schema.settings).set({ lastPriceFetch: new Date().toISOString() });
-
   return results;
 }
 
-export async function fetchHistoricalPrices(assetId: number, yahooSymbol: string, isAud: boolean, startDate: string, interval: '1wk' | '1d' = '1wk'): Promise<number> {
+export interface HistoricalAssetRef {
+  id: number;
+  yahooSymbol: string;
+  isAud: boolean;
+}
+
+/**
+ * Fetch a historical price series for an asset and upsert one row per trading
+ * day. The asset must belong to the given `profileId` — callers passing an
+ * asset that isn't scoped to the profile get zero rows back without touching
+ * Yahoo.
+ */
+export async function fetchHistoricalPrices(
+  profileId: number,
+  asset: HistoricalAssetRef,
+  startDate: string,
+  interval: '1wk' | '1d' = '1wk',
+): Promise<number> {
+  const owned = await db.select({ id: schema.assets.id })
+    .from(schema.assets)
+    .where(and(eq(schema.assets.id, asset.id), eq(schema.assets.profileId, profileId)))
+    .limit(1);
+  if (owned.length === 0) return 0;
+
   let count = 0;
   try {
-    const result = await yf.chart(yahooSymbol, {
+    const result = await yf.chart(asset.yahooSymbol, {
       period1: startDate,
       interval,
     });
 
     let fxRates: Map<string, number> | null = null;
-    if (!isAud) {
+    if (!asset.isAud) {
       try {
         const fxResult = await yf.chart(FX_SYMBOL, {
           period1: startDate,
@@ -150,7 +178,7 @@ export async function fetchHistoricalPrices(assetId: number, yahooSymbol: string
       let priceUsd: number | undefined;
       let fxRate: number | undefined;
 
-      if (isAud) {
+      if (asset.isAud) {
         priceAud = price;
       } else {
         priceUsd = price;
@@ -160,7 +188,7 @@ export async function fetchHistoricalPrices(assetId: number, yahooSymbol: string
 
       try {
         await db.insert(schema.prices).values({
-          assetId,
+          assetId: asset.id,
           date,
           priceAud,
           priceUsd,
@@ -175,7 +203,7 @@ export async function fetchHistoricalPrices(assetId: number, yahooSymbol: string
       }
     }
   } catch (error) {
-    console.error(`Failed to fetch historical prices for asset ${assetId} (${yahooSymbol}):`, error);
+    console.error(`Failed to fetch historical prices for asset ${asset.id} (${asset.yahooSymbol}):`, error);
   }
   return count;
 }

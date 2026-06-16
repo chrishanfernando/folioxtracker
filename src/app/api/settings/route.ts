@@ -9,18 +9,14 @@ export async function GET() {
   const user = await requireUser();
   if (user instanceof NextResponse) return user;
 
-  const [userSettings, app] = await Promise.all([
-    db.select().from(schema.userSettings).where(eq(schema.userSettings.userId, user.id)).limit(1),
-    db.select().from(schema.settings).limit(1),
-  ]);
+  const userSettings = await db.select().from(schema.userSettings)
+    .where(eq(schema.userSettings.userId, user.id))
+    .limit(1);
 
   return NextResponse.json({
     accountEmail: user.email,
     notificationEmail: userSettings[0]?.notificationEmail ?? '',
     emailNotifications: userSettings[0]?.emailNotifications ?? false,
-    lastPriceFetch: app[0]?.lastPriceFetch ?? null,
-    lastRebalanceCheck: app[0]?.lastRebalanceCheck ?? null,
-    lastEmailPoll: app[0]?.lastEmailPoll ?? null,
   });
 }
 
