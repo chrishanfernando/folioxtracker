@@ -5,21 +5,23 @@ import { ASSET_MAP, INACTIVE_ASSETS } from '@/lib/ticker-map';
 import { eq, and } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth-helpers';
 import { resolveProfileId } from '@/lib/profile';
+import { checkImportLimit } from '@/lib/rate-limit-guard';
+import { requireUploadFile } from '@/lib/upload-guard';
 import { trackAsync, EVENTS } from '@/lib/analytics';
 
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
     if (user instanceof NextResponse) return user;
+    const limited = checkImportLimit(user.id, request.headers);
+    if (limited) return limited;
 
     const profileId = await resolveProfileId(request, user.id);
     if (profileId instanceof NextResponse) return profileId;
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const file = requireUploadFile(formData);
+    if (file instanceof NextResponse) return file;
     const isPreview = formData.get('preview') === 'true';
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
-    }
 
     const buffer = await file.arrayBuffer();
     const parsed = parseStakeXlsx(buffer);

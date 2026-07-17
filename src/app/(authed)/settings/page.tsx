@@ -173,14 +173,12 @@ export default function SettingsPage() {
   async function pollNow() {
     setPolling(true);
     try {
-      const res = await fetch('/api/cron/email', {
-        headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}` },
-      });
+      const res = await fetch('/api/settings/poll-email', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         toast.success(`Polled: ${data.imported} imported, ${data.skipped} skipped`);
-        if (data.errors?.length > 0) {
-          data.errors.forEach((e: string) => toast.error(e));
+        if (data.errorCount > 0) {
+          toast.error(`${data.errorCount} email${data.errorCount === 1 ? '' : 's'} failed to import — check the server logs`);
         }
         const statusRes = await fetch('/api/cron/status');
         const status: CronStatusRow[] = await statusRes.json();
