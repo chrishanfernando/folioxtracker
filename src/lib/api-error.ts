@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import * as Sentry from '@sentry/nextjs';
 import { ZodError } from 'zod';
 import { trackAsync, EVENTS } from '@/lib/analytics';
 
@@ -75,7 +76,11 @@ export function apiError(error: unknown, options: ApiErrorOptions = {}): NextRes
       errorClass: error instanceof Error ? error.constructor.name : 'unknown',
     },
   });
-  // TODO: Sentry capture wired in Group 11
+  // No-op until SENTRY_DSN is configured.
+  Sentry.captureException(error, {
+    tags: { route: options.route ?? 'unknown', method: options.method ?? 'unknown' },
+    extra: { requestId },
+  });
   const res = NextResponse.json({ error: 'Internal error', requestId }, { status: 500 });
   res.headers.set('x-request-id', requestId);
   return res;

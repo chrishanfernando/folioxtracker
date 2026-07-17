@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { parseTransactionsFromExcel, parsePricesFromExcel } from '@/lib/import-parser';
 import { ASSET_MAP, INACTIVE_ASSETS } from '@/lib/ticker-map';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth-helpers';
 import { resolveProfileId } from '@/lib/profile';
 import { checkImportLimit } from '@/lib/rate-limit-guard';
@@ -63,60 +63,76 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 1. Seed assets from ASSET_MAP for this profile
-    const assetIdMap = new Map<string, number>();
-
-    for (const [key, info] of Object.entries(allAssets)) {
-      const existing = await db.select().from(schema.assets)
-        .where(and(eq(schema.assets.symbol, key), eq(schema.assets.profileId, profileId)));
-
-      if (existing.length > 0) {
-        assetIdMap.set(key, existing[0].id);
-      } else {
-        const isActive = key in ASSET_MAP && !(key in INACTIVE_ASSETS);
-        const result = await db.insert(schema.assets).values({
-          profileId, symbol: info.symbol, name: info.name, displayTicker: info.displayTicker,
-          yahooSymbol: info.yahooSymbol, category: info.category, platform: info.platform, isActive,
-        }).returning();
-        assetIdMap.set(key, result[0].id);
-      }
-    }
-
-    // 2. Clear existing transactions for this profile's assets before re-importing
-    for (const assetId of assetIdMap.values()) {
-      await db.delete(schema.transactions).where(eq(schema.transactions.assetId, assetId));
-    }
-
-    let importedTxs = 0;
-    for (const tx of parsedTxs) {
-      const assetId = assetIdMap.get(tx.asset);
-      if (!assetId) { console.warn(`Unknown asset: ${tx.asset}`); continue; }
-
-      const assetInfo = allAssets[tx.asset];
-      await db.insert(schema.transactions).values({
-        assetId, date: tx.date, action: tx.action, quantity: tx.quantity,
-        unitPriceLocal: tx.unitPriceLocal, localCurrency: tx.fxRate ? 'USD' : 'AUD',
-        fxRate: tx.fxRate, unitPriceAud: tx.unitPriceAud, splitMultiplier: tx.splitMultiplier,
-        adjustedQty: tx.adjustedQty, totalAud: tx.totalAud,
-        source: assetInfo?.platform || null, comment: tx.comment,
-      });
-      importedTxs++;
-    }
-
-    // 3. Try to parse prices from spreadsheet (optional)
-    let importedPrices = 0;
+    // Parse the optional prices sheet up front so a parse failure can't
+    // abort the transaction mid-write.
+    let parsedPrices: ReturnType<typeof parsePricesFromExcel> = [];
     try {
-      const parsedPrices = parsePricesFromExcel(buffer);
-      for (const p of parsedPrices) {
-        const assetId = assetIdMap.get(p.asset);
-        if (!assetId) continue;
-        try {
-          await db.insert(schema.prices).values({ assetId, date: p.date, priceAud: p.priceAud })
-            .onConflictDoUpdate({ target: [schema.prices.assetId, schema.prices.date], set: { priceAud: p.priceAud } });
-          importedPrices++;
-        } catch { /* Skip on error */ }
-      }
+      parsedPrices = parsePricesFromExcel(buffer);
     } catch { /* Prices sheet missing or unparseable */ }
+
+    // Replace-import runs atomically: a failure anywhere rolls back the
+    // delete, so the profile can't be left half-imported.
+    const assetIdMap = new Map<string, number>();
+    let importedTxs = 0;
+    let importedPrices = 0;
+    const BATCH = 50;
+
+    await db.transaction(async (tdb) => {
+      // 1. Seed assets from ASSET_MAP for this profile
+      for (const [key, info] of Object.entries(allAssets)) {
+        const existing = await tdb.select().from(schema.assets)
+          .where(and(eq(schema.assets.symbol, key), eq(schema.assets.profileId, profileId)));
+
+        if (existing.length > 0) {
+          assetIdMap.set(key, existing[0].id);
+        } else {
+          const isActive = key in ASSET_MAP && !(key in INACTIVE_ASSETS);
+          const result = await tdb.insert(schema.assets).values({
+            profileId, symbol: info.symbol, name: info.name, displayTicker: info.displayTicker,
+            yahooSymbol: info.yahooSymbol, category: info.category, platform: info.platform, isActive,
+          }).returning();
+          assetIdMap.set(key, result[0].id);
+        }
+      }
+
+      // 2. Clear existing transactions for this profile's assets before re-importing
+      const assetIds = [...assetIdMap.values()];
+      if (assetIds.length > 0) {
+        await tdb.delete(schema.transactions).where(inArray(schema.transactions.assetId, assetIds));
+      }
+
+      // 3. Batch-insert transactions
+      const txRows = parsedTxs.flatMap(tx => {
+        const assetId = assetIdMap.get(tx.asset);
+        if (!assetId) { console.warn(`Unknown asset: ${tx.asset}`); return []; }
+        const assetInfo = allAssets[tx.asset];
+        return [{
+          assetId, date: tx.date, action: tx.action, quantity: tx.quantity,
+          unitPriceLocal: tx.unitPriceLocal, localCurrency: tx.fxRate ? 'USD' : 'AUD',
+          fxRate: tx.fxRate, unitPriceAud: tx.unitPriceAud, splitMultiplier: tx.splitMultiplier,
+          adjustedQty: tx.adjustedQty, totalAud: tx.totalAud,
+          source: assetInfo?.platform || null, comment: tx.comment,
+        }];
+      });
+      for (let i = 0; i < txRows.length; i += BATCH) {
+        await tdb.insert(schema.transactions).values(txRows.slice(i, i + BATCH));
+      }
+      importedTxs = txRows.length;
+
+      // 4. Batch-upsert prices from the optional prices sheet
+      const priceRows = parsedPrices.flatMap(p => {
+        const assetId = assetIdMap.get(p.asset);
+        return assetId ? [{ assetId, date: p.date, priceAud: p.priceAud }] : [];
+      });
+      for (let i = 0; i < priceRows.length; i += BATCH) {
+        await tdb.insert(schema.prices).values(priceRows.slice(i, i + BATCH))
+          .onConflictDoUpdate({
+            target: [schema.prices.assetId, schema.prices.date],
+            set: { priceAud: sql`excluded.price_aud` },
+          });
+      }
+      importedPrices = priceRows.length;
+    });
 
     trackAsync(EVENTS.IMPORT_COMPLETED, { userId: user.id, props: { source: 'xlsx', inserted: importedTxs } });
 
