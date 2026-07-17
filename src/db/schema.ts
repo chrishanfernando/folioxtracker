@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 
 // Better Auth tables (user, session, account, verification).
 // Names match Better Auth's defaults so the drizzleAdapter resolves them by convention.
@@ -53,6 +53,9 @@ export const userSettings = sqliteTable('user_settings', {
   userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
   notificationEmail: text('notification_email'),
   emailNotifications: integer('email_notifications', { mode: 'boolean' }).notNull().default(false),
+  // When true, this user's behaviour is excluded from product analytics capture.
+  // Default false = analytics on (first-party, no PII — see src/lib/analytics.ts).
+  analyticsOptOut: integer('analytics_opt_out', { mode: 'boolean' }).notNull().default(false),
 });
 
 export const profiles = sqliteTable('profiles', {
@@ -142,9 +145,29 @@ export const riskProfiles = sqliteTable('risk_profiles', {
   updatedAt: text('updated_at').notNull(),
 });
 
+// First-party product-analytics event stream. Privacy-preserving by construction:
+// no dollar amounts (portfolio value is bucketed before it gets here), no holdings,
+// no free text. `userId` is the opaque Better Auth id, kept so per-user feature
+// adoption can be computed; it is never shown un-aggregated in the admin view.
+// Acquisition/activation/retention are derived from the `user`/`session` tables
+// directly (see src/lib/metrics.ts); this table covers in-app feature usage.
+export const analyticsEvents = sqliteTable('analytics_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  // Nullable: pre-auth events (e.g. signup funnel) may not have a user yet.
+  userId: text('user_id'),
+  name: text('name').notNull(),
+  // JSON blob of bucketed/enumerated properties (e.g. {"source":"cmc","inserted":12}).
+  props: text('props'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => [
+  index('analytics_events_name_created_idx').on(table.name, table.createdAt),
+  index('analytics_events_user_idx').on(table.userId),
+]);
+
 export const cmcAccountMappings = sqliteTable('cmc_account_mappings', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   cmcAccountNumber: text('cmc_account_number').notNull().unique(),
   profileId: integer('profile_id').notNull().references(() => profiles.id),
   label: text('label'),
+  verified: integer('verified', { mode: 'boolean' }).notNull().default(false),
 });

@@ -46,6 +46,13 @@ export default function PrivacyPage() {
         <li>To provide the core service (display your holdings, calculate drift, send alerts).</li>
         <li>To send transactional emails — verification, password resets, and rebalance notifications you have enabled.</li>
         <li>To detect and prevent fraud, abuse, or security incidents.</li>
+        <li>
+          To understand which features are used so we can improve the product,
+          via a small set of first-party, anonymised usage events (for example,
+          that a transaction was logged or a file imported). These events never
+          include dollar amounts, holdings, or free text, and you can opt out
+          under Settings → Privacy &amp; Analytics.
+        </li>
         <li>To comply with legal obligations.</li>
       </ul>
       <p>
@@ -83,8 +90,10 @@ export default function PrivacyPage() {
       </ul>
       <p>
         We do not use third-party advertising, tracking pixels, or
-        analytics SDKs. If we add privacy-friendly analytics in the
-        future, we will update this policy.
+        third-party analytics SDKs. Product-usage analytics are
+        <strong> first-party only</strong> — anonymised events are stored in our
+        own database (Turso, above) and never shared with an analytics vendor.
+        You can opt out at any time under Settings → Privacy &amp; Analytics.
       </p>
 
       <h2 className="text-xl font-semibold mt-6">4. Cookies</h2>

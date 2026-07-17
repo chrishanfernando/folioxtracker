@@ -7,6 +7,7 @@ import { inArray, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { env } from '@/lib/env';
 import { sendVerificationEmail, sendPasswordResetEmail } from '@/lib/email';
+import { track, EVENTS } from '@/lib/analytics';
 
 function isBcryptHash(hash: string): boolean {
   return hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$');
@@ -107,6 +108,24 @@ export const auth = betterAuth({
         await db.delete(schema.categoryTargets).where(inArray(schema.categoryTargets.profileId, profileIds));
         await db.delete(schema.cmcAccountMappings).where(inArray(schema.cmcAccountMappings.profileId, profileIds));
         await db.delete(schema.profiles).where(inArray(schema.profiles.id, profileIds));
+      },
+    },
+  },
+  // Product-analytics capture for the auth funnel. Guarded inside track() so a
+  // failure here can never block a signup or login.
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (createdUser) => {
+          await track(EVENTS.SIGNUP, { userId: createdUser.id });
+        },
+      },
+    },
+    session: {
+      create: {
+        after: async (createdSession) => {
+          await track(EVENTS.LOGIN, { userId: createdSession.userId });
+        },
       },
     },
   },

@@ -7,6 +7,7 @@ import { requireUser } from '@/lib/auth-helpers';
 import { resolveProfileId } from '@/lib/profile';
 import { aud, sanitizedString } from '@/lib/validation/primitives';
 import { apiError, ValidationError, parseJsonBody } from '@/lib/api-error';
+import { trackAsync, EVENTS } from '@/lib/analytics';
 
 export async function GET(request: NextRequest) {
   const user = await requireUser();
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
   if (profileId instanceof NextResponse) return profileId;
 
   const drift = await calculateDrift(profileId);
+  trackAsync(EVENTS.REBALANCE_VIEWED, { userId: user.id });
   return NextResponse.json(drift);
 }
 
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
         }
       }
       const drift = await calculateDrift(profileId);
+      trackAsync(EVENTS.TARGET_SET, { userId: user.id, props: { count: body.targets.length } });
       return NextResponse.json(drift);
     }
 

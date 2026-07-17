@@ -53,6 +53,7 @@ export default function SettingsPage() {
   const { activeProfileId, profileFetch } = useProfile();
   const [email, setEmail] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(false);
+  const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
   const [cronStatus, setCronStatus] = useState<CronStatusRow[]>([]);
 
@@ -61,6 +62,7 @@ export default function SettingsPage() {
   const [savingBenchmark, setSavingBenchmark] = useState(false);
 
   // CMC account mappings
+  const [emailPollEnabled, setEmailPollEnabled] = useState(false);
   const [mappings, setMappings] = useState<CmcMapping[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [newAccountNumber, setNewAccountNumber] = useState('');
@@ -82,14 +84,17 @@ export default function SettingsPage() {
       .then((data) => {
         setEmail(data.notificationEmail || '');
         setEmailNotifications(data.emailNotifications || false);
+        setAnalyticsOptOut(data.analyticsOptOut || false);
         setAccountEmail(data.accountEmail || '');
+        const enabled = !!data.emailPollEnabled;
+        setEmailPollEnabled(enabled);
+        if (enabled) loadMappings();
       });
     fetch('/api/cron/status')
       .then(r => r.json())
       .then((data: CronStatusRow[]) => {
         if (Array.isArray(data)) setCronStatus(data);
       });
-    loadMappings();
   }, []);
 
   useEffect(() => {
@@ -192,7 +197,7 @@ export default function SettingsPage() {
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notificationEmail: email, emailNotifications }),
+      body: JSON.stringify({ notificationEmail: email, emailNotifications, analyticsOptOut }),
     });
 
     if (res.ok) {
@@ -328,6 +333,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {emailPollEnabled && (
         <Card>
           <CardHeader>
             <CardTitle>CMC Account Mappings</CardTitle>
@@ -383,6 +389,30 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Privacy &amp; Analytics</CardTitle>
+            <CardDescription>
+              We capture a small set of first-party, anonymised usage events (e.g. which features
+              you use) to decide what to improve. No holdings, dollar amounts, or personal data are
+              recorded, and nothing is shared with third parties. You can opt out below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="analyticsOptOut"
+                checked={analyticsOptOut}
+                onChange={(e) => setAnalyticsOptOut(e.target.checked)}
+                className="rounded"
+              />
+              <Label htmlFor="analyticsOptOut">Opt out of anonymised usage analytics</Label>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -402,12 +432,14 @@ export default function SettingsPage() {
             <p>Last price fetch: {findRun(cronStatus, 'prices') || 'Never'}</p>
             <p>Last price backfill: {findRun(cronStatus, 'prices_backfill') || 'Never'}</p>
             <p>Last rebalance check: {findRun(cronStatus, 'rebalance') || 'Never'}</p>
-            <div className="flex items-center gap-2">
-              <p>Last email poll: {findRun(cronStatus, 'email_poll') || 'Never'}</p>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={pollNow} disabled={polling}>
-                {polling ? 'Polling...' : 'Poll Now'}
-              </Button>
-            </div>
+            {emailPollEnabled && (
+              <div className="flex items-center gap-2">
+                <p>Last email poll: {findRun(cronStatus, 'email_poll') || 'Never'}</p>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={pollNow} disabled={polling}>
+                  {polling ? 'Polling...' : 'Poll Now'}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

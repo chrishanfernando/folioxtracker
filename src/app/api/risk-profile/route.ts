@@ -6,6 +6,7 @@ import { requireUser } from '@/lib/auth-helpers';
 import { resolveProfileId } from '@/lib/profile';
 import { calcScore, scoreToTier, TIER_PROFILES } from '@/lib/risk-profiling';
 import { apiError, parseJsonBody } from '@/lib/api-error';
+import { trackAsync, EVENTS } from '@/lib/analytics';
 
 export async function GET(request: NextRequest) {
   const user = await requireUser();
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
         });
       }
     }
+
+    trackAsync(EVENTS.RISK_PROFILE_COMPLETED, { userId: user.id, props: { tier: riskTier, appliedTargets: !!applyTargets } });
 
     return NextResponse.json({ riskTier, riskScore, tier: TIER_PROFILES[riskTier] });
   } catch (error) {

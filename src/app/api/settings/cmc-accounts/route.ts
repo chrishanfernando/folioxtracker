@@ -5,8 +5,14 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { requireProfileOwnership, requireUser } from '@/lib/auth-helpers';
 import { positiveInt, sanitizedString, optionalString } from '@/lib/validation/primitives';
 import { apiError, NotFoundError, parseJsonBody } from '@/lib/api-error';
+import { env } from '@/lib/env';
+
+function featureDisabledResponse() {
+  return NextResponse.json({ error: 'Feature disabled' }, { status: 503 });
+}
 
 export async function GET() {
+  if (!env.EMAIL_POLL_ENABLED) return featureDisabledResponse();
   const user = await requireUser();
   if (user instanceof NextResponse) return user;
 
@@ -27,6 +33,7 @@ const cmcCreateSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    if (!env.EMAIL_POLL_ENABLED) return featureDisabledResponse();
     const user = await requireUser();
     if (user instanceof NextResponse) return user;
 
@@ -65,6 +72,7 @@ const cmcDeleteSchema = z.object({ id: positiveInt }).strict();
 
 export async function DELETE(request: NextRequest) {
   try {
+    if (!env.EMAIL_POLL_ENABLED) return featureDisabledResponse();
     const user = await requireUser();
     if (user instanceof NextResponse) return user;
 

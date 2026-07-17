@@ -33,6 +33,9 @@ const baseSchema = z.object({
   IMAP_USER: z.string().min(1).optional(),
   IMAP_PASSWORD: z.string().min(1).optional(),
   SENTRY_DSN: z.string().url().optional(),
+  // Comma-separated list of emails allowed to view the internal /admin/metrics
+  // dashboard. Empty = nobody can reach it (deny by default).
+  ADMIN_EMAILS: z.string().optional(),
 });
 
 const productionRequired = z.object({
@@ -114,6 +117,10 @@ function parseEnv() {
     IMAP_USER: parsed.IMAP_USER,
     IMAP_PASSWORD: parsed.IMAP_PASSWORD,
     SENTRY_DSN: parsed.SENTRY_DSN,
+    ADMIN_EMAILS: (parsed.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
   } as const;
 }
 

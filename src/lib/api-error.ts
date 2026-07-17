@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
+import { trackAsync, EVENTS } from '@/lib/analytics';
 
 export class AppError extends Error {
   readonly status: number;
@@ -67,6 +68,13 @@ export function apiError(error: unknown, options: ApiErrorOptions = {}): NextRes
   }
 
   console.error(`[api ${requestId}] unhandled error`, { ...options, error });
+  trackAsync(EVENTS.ERROR_OCCURRED, {
+    props: {
+      route: options.route ?? 'unknown',
+      method: options.method ?? null,
+      errorClass: error instanceof Error ? error.constructor.name : 'unknown',
+    },
+  });
   // TODO: Sentry capture wired in Group 11
   const res = NextResponse.json({ error: 'Internal error', requestId }, { status: 500 });
   res.headers.set('x-request-id', requestId);

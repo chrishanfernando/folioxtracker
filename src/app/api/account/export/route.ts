@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq, inArray } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { requireUser } from '@/lib/auth-helpers';
+import { trackAsync, EVENTS } from '@/lib/analytics';
 
 const SCHEMA_VERSION = 1;
 
@@ -57,6 +58,8 @@ export async function GET() {
     categoryTargets,
     cmcAccountMappings,
   };
+
+  trackAsync(EVENTS.ACCOUNT_EXPORTED, { userId, props: { profiles: profiles.length, transactions: transactions.length } });
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const filename = `portfolio-export-${userId}-${today}.json`;

@@ -5,7 +5,6 @@ import { parseCmcConfirmationPdf } from '@/lib/cmc-email-parser';
 import { importCmcTransactions } from '@/lib/cmc-import';
 import { db, schema } from '@/db';
 import { env } from '@/lib/env';
-import { eq } from 'drizzle-orm';
 import { recordCronRun } from '@/lib/cron-runs';
 
 interface PollResult {
@@ -13,6 +12,29 @@ interface PollResult {
   imported: number;
   skipped: number;
   errors: string[];
+}
+
+const PARSE_TIMEOUT_MS = 10_000;
+const MAX_MESSAGE_BYTES = 20 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+function withTimeout<T>(p: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${PARSE_TIMEOUT_MS}ms`)),
+      PARSE_TIMEOUT_MS,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 export async function pollCmcEmails(): Promise<PollResult> {
@@ -29,11 +51,17 @@ export async function pollCmcEmails(): Promise<PollResult> {
     return { processed: 0, imported: 0, skipped: 0, errors: ['IMAP not configured'] };
   }
 
-  // Load account mappings
+  // Load account mappings. Only verified mappings are eligible for ingestion;
+  // unverified mappings are tracked so we can leave the email unread + record skip.
   const mappings = await db.select().from(schema.cmcAccountMappings);
-  const accountToProfile = new Map(mappings.map(m => [m.cmcAccountNumber, m.profileId]));
+  const verifiedAccountToProfile = new Map(
+    mappings.filter(m => m.verified).map(m => [m.cmcAccountNumber, m.profileId]),
+  );
+  const knownUnverifiedAccounts = new Set(
+    mappings.filter(m => !m.verified).map(m => m.cmcAccountNumber),
+  );
 
-  if (accountToProfile.size === 0) {
+  if (verifiedAccountToProfile.size === 0 && knownUnverifiedAccounts.size === 0) {
     return { processed: 0, imported: 0, skipped: 0, errors: ['No CMC account mappings configured'] };
   }
 
@@ -52,7 +80,6 @@ export async function pollCmcEmails(): Promise<PollResult> {
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      // Search for unread messages (from CMC Markets)
       const messages = client.fetch(
         { seen: false },
         { source: true, envelope: true },
@@ -61,24 +88,52 @@ export async function pollCmcEmails(): Promise<PollResult> {
       for await (const msg of messages) {
         try {
           if (!msg.source) continue;
-          const parsed = await simpleParser(msg.source);
+
+          if (msg.source.length > MAX_MESSAGE_BYTES) {
+            result.errors.push(`Message ${msg.seq} exceeds ${MAX_MESSAGE_BYTES} bytes; skipped`);
+            result.skipped++;
+            continue;
+          }
+
+          const parsed = await withTimeout(simpleParser(msg.source), 'simpleParser');
           const from = parsed.from?.text?.toLowerCase() || '';
 
-          // Only process CMC Markets emails
           if (!from.includes('cmc')) {
             continue;
           }
 
-          // Extract PDF attachments
           const pdfAttachments = (parsed.attachments || []).filter(
             a => a.contentType === 'application/pdf' || a.filename?.endsWith('.pdf'),
           );
 
           if (pdfAttachments.length === 0) continue;
 
+          let markRead = true;
+
           for (const attachment of pdfAttachments) {
-            const pdf = (pdfParse as any).default || pdfParse;
-            const pdfData = await pdf(attachment.content);
+            if (!attachment.content || attachment.content.length > MAX_ATTACHMENT_BYTES) {
+              result.errors.push(
+                `Attachment ${attachment.filename || 'unnamed'} exceeds ${MAX_ATTACHMENT_BYTES} bytes; skipped`,
+              );
+              result.skipped++;
+              markRead = false;
+              continue;
+            }
+
+            type PdfParseFn = (b: Buffer) => Promise<{ text: string }>;
+            const pdf = ((pdfParse as unknown as { default?: PdfParseFn }).default ||
+              (pdfParse as unknown as PdfParseFn));
+            let pdfData: { text: string };
+            try {
+              pdfData = await withTimeout(pdf(attachment.content), 'pdf-parse');
+            } catch (err) {
+              result.errors.push(
+                `Failed to parse PDF ${attachment.filename || 'unnamed'}: ${err instanceof Error ? err.message : 'unknown'}`,
+              );
+              markRead = false;
+              continue;
+            }
+
             const tx = parseCmcConfirmationPdf(pdfData.text);
 
             if (!tx) {
@@ -86,10 +141,19 @@ export async function pollCmcEmails(): Promise<PollResult> {
               continue;
             }
 
-            // Look up profile from account number
-            const profileId = accountToProfile.get(tx.accountNumber);
+            const profileId = verifiedAccountToProfile.get(tx.accountNumber);
             if (!profileId) {
-              result.errors.push(`Unknown CMC account ${tx.accountNumber} (confirmation ${tx.confirmationNo})`);
+              if (knownUnverifiedAccounts.has(tx.accountNumber)) {
+                result.errors.push(
+                  `mapping unverified for CMC account ${tx.accountNumber} (confirmation ${tx.confirmationNo})`,
+                );
+              } else {
+                result.errors.push(
+                  `Unknown CMC account ${tx.accountNumber} (confirmation ${tx.confirmationNo})`,
+                );
+              }
+              result.skipped++;
+              markRead = false;
               continue;
             }
 
@@ -105,10 +169,11 @@ export async function pollCmcEmails(): Promise<PollResult> {
 
           result.processed++;
 
-          // Mark as read
-          await client.messageFlagsAdd(msg.seq, ['\\Seen'], { uid: false });
+          if (markRead) {
+            await client.messageFlagsAdd(msg.seq, ['\\Seen'], { uid: false });
+          }
         } catch (err) {
-          result.errors.push(`Error processing message: ${err}`);
+          result.errors.push(`Error processing message: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
     } finally {
@@ -117,7 +182,7 @@ export async function pollCmcEmails(): Promise<PollResult> {
 
     await client.logout();
   } catch (err) {
-    result.errors.push(`IMAP connection error: ${err}`);
+    result.errors.push(`IMAP connection error: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   await recordCronRun('email_poll', result.errors.length > 0 ? 'error' : 'ok', {

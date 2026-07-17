@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { db, schema } from '@/db';
+import { env } from '@/lib/env';
 
 export type SessionUser = { id: string; email: string; name: string };
 
@@ -28,6 +29,26 @@ export async function requireUser(): Promise<SessionUser | NextResponse> {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  return user;
+}
+
+/**
+ * Whether the given email is allowed to access the internal admin surfaces.
+ * Gated by the ADMIN_EMAILS env var; empty list denies everyone.
+ */
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return env.ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
+/**
+ * Require an authenticated *admin* session. Returns the user or null. Intended
+ * for server components that render internal tooling (call `notFound()` on null
+ * so the route's existence isn't leaked to non-admins).
+ */
+export async function getAdminUser(): Promise<SessionUser | null> {
+  const user = await getSessionUser();
+  if (!user || !isAdminEmail(user.email)) return null;
   return user;
 }
 

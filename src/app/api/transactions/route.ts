@@ -6,6 +6,7 @@ import { requireAssetOwnership, requireUser } from '@/lib/auth-helpers';
 import { resolveProfileId } from '@/lib/profile';
 import { aud, isoDate, optionalString, qtyDecimal, transactionAction, assetIdRef } from '@/lib/validation/primitives';
 import { apiError, parseJsonBody } from '@/lib/api-error';
+import { trackAsync, EVENTS } from '@/lib/analytics';
 
 export async function GET(request: NextRequest) {
   const user = await requireUser();
@@ -91,6 +92,8 @@ export async function POST(request: NextRequest) {
       totalAud,
       comment: body.comment ?? null,
     }).returning();
+
+    trackAsync(EVENTS.TRANSACTION_CREATED, { userId: user.id, props: { source: 'manual', action: body.action } });
 
     return NextResponse.json(result[0]);
   } catch (error) {

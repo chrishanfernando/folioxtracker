@@ -46,6 +46,7 @@ Variables are documented in [`.env.example`](./.env.example).
 | `RESEND_API_KEY` | optional | enables email notifications |
 | `IMAP_HOST` / `IMAP_PORT` / `IMAP_USER` / `IMAP_PASSWORD` | optional | enables `/api/cron/email` CMC auto-import |
 | `FORCE_HTTPS` | optional | set to `true` to mark session cookies `Secure` |
+| `ADMIN_EMAILS` | optional | comma-separated emails allowed to view `/admin/metrics`; empty = nobody |
 
 ## Scripts
 
@@ -54,9 +55,38 @@ npm run dev      # next dev
 npm run build    # next build
 npm run start    # next start
 npm run lint     # eslint
+npm run metrics  # print the product-metrics report to the terminal
 npx drizzle-kit push       # apply schema to the configured DB
 npx drizzle-kit generate   # generate a new migration from schema changes
 ```
+
+## Analytics & metrics
+
+The app captures a small, first-party, privacy-preserving set of product
+metrics so you can see sign-ups, activation, retention, and which features are
+(and aren't) used. No third-party analytics SaaS is involved.
+
+**What's measured**
+
+- **Acquisition → activation funnel** and **email-verification rate**, **retention**
+  (D7/D30), and a weekly-active-users trend — all derived from the Better Auth
+  `user`/`session` tables, so they work retroactively for existing accounts.
+- **Feature adoption** (logging transactions, imports per source, setting targets,
+  rebalance, risk profile, dashboard views, exports) and **server errors** — from a
+  first-party `analytics_events` table populated via `src/lib/analytics.ts`.
+
+**Privacy.** No dollar amounts (portfolio value is bucketed), no holdings, no
+free text. Events stay in your own SQLite/Turso DB. Each user can opt out under
+**Settings → Privacy & Analytics** (`user_settings.analytics_opt_out`).
+
+**How to read it**
+
+- Web dashboard: **`/admin/metrics`** — restrict access by setting `ADMIN_EMAILS`
+  to your email(s). Non-admins get a 404.
+- Terminal: **`npm run metrics`** — same numbers, no UI.
+
+See [`docs/product/06-metrics-plan.md`](./docs/product/06-metrics-plan.md) for
+the full taxonomy and the decision each metric is meant to inform.
 
 ## Cron
 

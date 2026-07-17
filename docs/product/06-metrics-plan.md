@@ -1,6 +1,13 @@
 # 06 — Metrics & Instrumentation Plan
 
-> **Status:** Hypothetical for users beyond me. The current app has no analytics — by design (privacy thesis). This document is what I'd instrument *if* the strategy moved from Fork A toward Fork B/C and a paid tier were on the table. Privacy-respecting from the start, opt-in only.
+> **Status (updated 2026-06):** Partly **implemented**. The app has moved to a
+> multi-user, hosted model (email/password sign-up, email verification, password
+> reset, per-user data via Better Auth), so the original "single-user, opt-in
+> self-hosted heartbeat" framing below is superseded for the hosted build. A
+> first-party, privacy-preserving analytics layer now ships in the codebase —
+> see [**Implementation status**](#implementation-status) at the foot of this
+> doc for exactly what is captured, where, and how to read it. The taxonomy and
+> decision-feedback table below remain the source of truth for *intent*.
 
 ## What I'd measure, and why
 
@@ -105,3 +112,59 @@ This is the bit most metrics plans skip and it's the most important. A metric th
 ## Honest caveat
 
 I have not run this in production. The targets are calibrations against OSS / dev-tools benchmarks I've read or worked near. They will be wrong. The point of writing this plan now is not to get the targets right — it's to commit, in advance, to *which decisions each metric will inform*, so that when the data lands, I argue with it instead of around it.
+
+---
+
+## Implementation status
+
+The hosted, multi-user build now ships a working analytics layer. It was
+deliberately split so value lands without waiting on instrumentation:
+
+### Phase 0 — derived from existing tables (retroactive, no instrumentation)
+
+Acquisition, activation, and retention are computed directly from Better Auth's
+`user` and `session` tables, so they cover **all** existing accounts with no
+back-fill:
+
+- **Acquisition → activation funnel:** signed up → email verified → logged in →
+  activated (logged ≥ 1 transaction).
+- **Email-verification rate** — surfaced prominently because `requireEmailVerification`
+  is on, so anyone who never verifies is lost *before* activation. This was the
+  single biggest blind spot in the multi-user pivot.
+- **Retention:** D7 (returned after first day) and D30 (active in last 30 days),
+  plus a 12-week weekly-active-users trend.
+
+### Phase 1 — first-party event capture (forward-looking feature usage)
+
+A small `analytics_events` table + a fire-and-forget `track()` helper
+(`src/lib/analytics.ts`) record the deliberately-small event set from the
+taxonomy above: `signup`, `login` (via Better Auth database hooks),
+`transaction_created`, `import_completed` (with `source`), `target_set`,
+`rebalance_viewed`, `risk_profile_completed`, `dashboard_viewed` (bucketed
+value), `account_exported`, and `error_occurred`. These answer "which features
+are used vs. ignored" and "which importer is rotting".
+
+**Privacy properties (the thesis, kept honest):**
+
+- No dollar amounts (portfolio value is bucketed before capture), no holdings,
+  no tickers, no free text.
+- First-party only — events go to our own SQLite/Turso, never a third-party SaaS.
+- Per-user **opt-out** in `/settings` (`user_settings.analytics_opt_out`); the
+  capture helper skips opted-out users and fails closed if it can't read the flag.
+
+### How to read it
+
+- **Dashboard:** `/admin/metrics` — gated to the emails in `ADMIN_EMAILS`
+  (everyone else gets a 404). Funnel, verification callout, retention, WAU trend,
+  feature-adoption bars, importer health, event volume, errors, recent sign-ups.
+- **CLI:** `npm run metrics` — prints the same aggregate to the terminal for a
+  quick read without the UI. Both read `src/lib/metrics.ts`, so they never disagree.
+
+### Not yet done (deliberate next steps)
+
+- Raw-event purge / daily roll-up after N days (the doc's "aggregated only after
+  7 days" promise). Volumes are tiny today; revisit before it matters.
+- An explicit `email_verified` *event* — currently derived from the `user` table,
+  which is sufficient for the rate but not for precise time-to-verify.
+- A/B testing and a public-facing metrics page — both gated on user-base size, as
+  noted above.
