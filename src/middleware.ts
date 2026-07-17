@@ -19,8 +19,6 @@ function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p + '?'))) {
     return true;
   }
-  // Public cron-style price endpoint authenticates via CRON_SECRET in the handler.
-  if (pathname.startsWith('/api/prices/cron')) return true;
   return false;
 }
 

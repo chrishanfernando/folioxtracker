@@ -60,50 +60,59 @@ export async function POST(request: NextRequest) {
     let imported = 0;
     let skipped = 0;
 
-    if (!isPreview) {
-      // Clear previous Swyftx-imported transactions for these assets
-      for (const assetId of assetIdMap.values()) {
-        await db.delete(schema.transactions)
-          .where(and(eq(schema.transactions.assetId, assetId), eq(schema.transactions.source, 'Swyftx')));
-      }
-    }
+    const processRows = async (dbh: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]) => {
+      for (const tx of parsed) {
+        const assetId = assetIdMap.get(tx.assetSymbol);
+        const ticker = allAssets[tx.assetSymbol]?.displayTicker || tx.swyftxTicker;
 
-    for (const tx of parsed) {
-      const assetId = assetIdMap.get(tx.assetSymbol);
-      const ticker = allAssets[tx.assetSymbol]?.displayTicker || tx.swyftxTicker;
+        if (!assetId) {
+          if (isPreview) {
+            previewRows.push({ date: tx.date, ticker, action: tx.action, quantity: tx.quantity, unitPrice: tx.unitPriceAud, total: tx.totalAud, status: 'new' });
+            imported++;
+          }
+          continue;
+        }
 
-      if (!assetId) {
+        const existing = await dbh.select({ id: schema.transactions.id })
+          .from(schema.transactions)
+          .where(and(eq(schema.transactions.assetId, assetId), eq(schema.transactions.date, tx.date), eq(schema.transactions.action, tx.action), eq(schema.transactions.quantity, tx.quantity), eq(schema.transactions.unitPriceAud, tx.unitPriceAud)))
+          .limit(1);
+
+        if (existing.length > 0) {
+          if (isPreview) {
+            previewRows.push({ date: tx.date, ticker, action: tx.action, quantity: tx.quantity, unitPrice: tx.unitPriceAud, total: tx.totalAud, status: 'duplicate' });
+          }
+          skipped++;
+          continue;
+        }
+
         if (isPreview) {
           previewRows.push({ date: tx.date, ticker, action: tx.action, quantity: tx.quantity, unitPrice: tx.unitPriceAud, total: tx.totalAud, status: 'new' });
-          imported++;
+        } else {
+          await dbh.insert(schema.transactions).values({
+            assetId, date: tx.date, action: tx.action, quantity: tx.quantity,
+            unitPriceLocal: tx.unitPriceAud, localCurrency: 'AUD', fxRate: null,
+            unitPriceAud: tx.unitPriceAud, splitMultiplier: 1, adjustedQty: tx.quantity,
+            totalAud: tx.totalAud, source: 'Swyftx',
+          });
         }
-        continue;
+        imported++;
       }
+    };
 
-      const existing = await db.select({ id: schema.transactions.id })
-        .from(schema.transactions)
-        .where(and(eq(schema.transactions.assetId, assetId), eq(schema.transactions.date, tx.date), eq(schema.transactions.action, tx.action), eq(schema.transactions.quantity, tx.quantity), eq(schema.transactions.unitPriceAud, tx.unitPriceAud)))
-        .limit(1);
-
-      if (existing.length > 0) {
-        if (isPreview) {
-          previewRows.push({ date: tx.date, ticker, action: tx.action, quantity: tx.quantity, unitPrice: tx.unitPriceAud, total: tx.totalAud, status: 'duplicate' });
+    if (isPreview) {
+      await processRows(db);
+    } else {
+      // Delete + re-insert runs atomically: a mid-import failure rolls back
+      // the delete instead of dropping this source's history.
+      await db.transaction(async (tdb) => {
+        // Clear previous Swyftx-imported transactions for these assets
+        for (const assetId of assetIdMap.values()) {
+          await tdb.delete(schema.transactions)
+            .where(and(eq(schema.transactions.assetId, assetId), eq(schema.transactions.source, 'Swyftx')));
         }
-        skipped++;
-        continue;
-      }
-
-      if (isPreview) {
-        previewRows.push({ date: tx.date, ticker, action: tx.action, quantity: tx.quantity, unitPrice: tx.unitPriceAud, total: tx.totalAud, status: 'new' });
-      } else {
-        await db.insert(schema.transactions).values({
-          assetId, date: tx.date, action: tx.action, quantity: tx.quantity,
-          unitPriceLocal: tx.unitPriceAud, localCurrency: 'AUD', fxRate: null,
-          unitPriceAud: tx.unitPriceAud, splitMultiplier: 1, adjustedQty: tx.quantity,
-          totalAud: tx.totalAud, source: 'Swyftx',
-        });
-      }
-      imported++;
+        await processRows(tdb);
+      });
     }
 
     if (isPreview) {
