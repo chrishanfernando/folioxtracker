@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart, Brain, LogOut } from 'lucide-react';
+import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart, Brain, LogOut, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/components/profile-context';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { signOut } from '@/lib/auth-client';
 
@@ -30,6 +30,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameText, setRenameText] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+
+  // Close the mobile overflow menu after navigating.
+  useEffect(() => {
+    setShowMoreMenu(false);
+  }, [pathname]);
 
   async function logout() {
     if (loggingOut) return;
@@ -197,8 +203,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 bg-background border-t z-50">
+        {showMoreMenu && (
+          <div className="absolute bottom-full inset-x-0 bg-background border-t shadow-lg">
+            {navItems.slice(4).map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setShowMoreMenu(false)}
+                className={cn(
+                  'flex items-center gap-3 px-4 py-3 text-sm border-b',
+                  pathname.startsWith(item.href)
+                    ? 'text-primary font-medium'
+                    : 'text-muted-foreground'
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            ))}
+            <button
+              onClick={() => { setShowMoreMenu(false); logout(); }}
+              disabled={loggingOut}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-muted-foreground disabled:opacity-50"
+            >
+              <LogOut className="h-4 w-4" />
+              {loggingOut ? 'Logging out…' : 'Log out'}
+            </button>
+          </div>
+        )}
         <div className="flex justify-around">
-          {navItems.slice(0, 5).map((item) => (
+          {navItems.slice(0, 4).map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -213,6 +247,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {item.label}
             </Link>
           ))}
+          <button
+            onClick={() => setShowMoreMenu(v => !v)}
+            className={cn(
+              'flex flex-col items-center py-2 px-3 text-xs',
+              showMoreMenu || navItems.slice(4).some(i => pathname.startsWith(i.href))
+                ? 'text-primary'
+                : 'text-muted-foreground'
+            )}
+          >
+            <Menu className="h-5 w-5 mb-1" />
+            More
+          </button>
         </div>
       </nav>
 

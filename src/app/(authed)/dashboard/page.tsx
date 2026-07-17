@@ -48,6 +48,7 @@ export default function DashboardPage() {
   const chartColors = useChartColors();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState<'cost' | 'value' | 'pl' | 'return' | 'cagr'>('value');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -65,12 +66,16 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async () => {
     try {
+      setLoadError(false);
       const [dashRes, optsRes, rebalRes] = await Promise.all([
         profileFetch('/api/dashboard'),
         profileFetch('/api/assets/options'),
         profileFetch('/api/rebalance'),
       ]);
-      const json = dashRes.ok ? await dashRes.json() : null;
+      // A failed dashboard fetch must render the error state, not the
+      // "no holdings yet" empty state.
+      if (!dashRes.ok) throw new Error(`dashboard fetch failed: ${dashRes.status}`);
+      const json = await dashRes.json();
       const opts = optsRes.ok ? await optsRes.json() : {};
       const rebalData = rebalRes.ok ? await rebalRes.json() : [];
       setData(json && json.summary ? json : null);
@@ -95,6 +100,7 @@ export default function DashboardPage() {
         setDriftCategories(drifting);
       }
     } catch {
+      setLoadError(true);
       toast.error('Failed to load dashboard');
     } finally {
       setLoading(false);
@@ -107,13 +113,16 @@ export default function DashboardPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [field]: value }),
     });
-    // Update local state
-    if (data) {
-      const updated = { ...data };
-      const holding = updated.summary.holdings.find(h => h.assetId === assetId);
-      if (holding) holding[field] = value;
-      setData(updated);
-    }
+    // Update local state without mutating the previous state object.
+    setData(prev => prev ? {
+      ...prev,
+      summary: {
+        ...prev.summary,
+        holdings: prev.summary.holdings.map(h =>
+          h.assetId === assetId ? { ...h, [field]: value } : h
+        ),
+      },
+    } : prev);
     toast.success(`${field} updated`);
   }
 
@@ -158,6 +167,26 @@ export default function DashboardPage() {
   }, [activeProfileId, fetchData, profileFetch]);
 
   if (loading) return <AppShell><div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Loading...</p></div></AppShell>;
+
+  if (loadError && !data) {
+    return (
+      <AppShell>
+        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-semibold mb-2">Couldn&apos;t load your dashboard</p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Something went wrong fetching your portfolio. Your data is safe — try again.
+            </p>
+            <Button onClick={() => { setLoading(true); fetchData(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </AppShell>
+    );
+  }
 
   const s = data?.summary;
 
