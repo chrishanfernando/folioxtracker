@@ -27,7 +27,7 @@ export const EVENTS = {
   IMPORT_COMPLETED: 'import_completed',
   TARGET_SET: 'target_set',
   REBALANCE_VIEWED: 'rebalance_viewed',
-  RISK_PROFILE_COMPLETED: 'risk_profile_completed',
+  PORTFOLIO_TEMPLATE_APPLIED: 'portfolio_template_applied',
   DASHBOARD_VIEWED: 'dashboard_viewed',
   ACCOUNT_EXPORTED: 'account_exported',
   // Reliability.

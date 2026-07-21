@@ -212,8 +212,8 @@ export default function DashboardPage() {
               <Link href="/transactions/new">
                 <Button variant="outline">Add manually</Button>
               </Link>
-              <Link href="/risk-profile">
-                <Button variant="ghost">Set targets first</Button>
+              <Link href="/portfolios">
+                <Button variant="ghost">Browse example portfolios</Button>
               </Link>
             </div>
           </CardContent>

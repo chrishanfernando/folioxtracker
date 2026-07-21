@@ -44,8 +44,8 @@ export function GeneralAdviceBanner({ variant = 'inline' }: { variant?: Variant 
           General information, not personal financial advice
         </p>
         <p className="text-muted-foreground mt-1">
-          Recommendations shown here are educational model portfolios. They do
-          not account for your objectives, financial situation, or needs. Before
+          Portfolios shown here are general educational examples. They do not
+          account for your objectives, financial situation, or needs. Before
           acting on anything you see, consider speaking with a licensed financial
           adviser and reading the relevant Product Disclosure Statement. See our{' '}
           <Link href="/disclaimer" className="underline">disclaimer</Link>.
