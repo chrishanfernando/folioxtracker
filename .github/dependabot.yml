@@ -13,6 +13,13 @@ updates:
         update-types:
           - "patch"
           - "minor"
+    ignore:
+      # TypeScript 7.0 is the native (Go) compiler preview. It is not yet
+      # supported by typescript-eslint (typescript-eslint/typescript-eslint#10940)
+      # or Next 16.2's built-in TS integration, so the bump breaks lint + build.
+      # Stay on 6.x; treat any future TS major as a deliberate manual upgrade.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
 
