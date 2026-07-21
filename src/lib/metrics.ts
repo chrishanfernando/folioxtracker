@@ -220,7 +220,7 @@ export async function getMetricsOverview(): Promise<MetricsOverview> {
     { feature: 'Import file', event: 'import_completed' },
     { feature: 'Set targets', event: 'target_set' },
     { feature: 'View rebalance', event: 'rebalance_viewed' },
-    { feature: 'Risk profile', event: 'risk_profile_completed' },
+    { feature: 'Apply portfolio template', event: 'portfolio_template_applied' },
     { feature: 'View dashboard', event: 'dashboard_viewed' },
     { feature: 'Export data', event: 'account_exported' },
   ];

@@ -139,8 +139,19 @@ with a More overflow — nav items live in one `navItems` array in
 is plain `profileFetch` in `useEffect` (no SWR yet — planned). Pages should distinguish
 three render states: loading, **error (with retry)**, and empty — the dashboard is the
 reference implementation; conflating error with empty reads as data loss in a finance app.
-Toasts via `sonner`. The `(authed)` layout runs `OnboardingGate`, which redirects users
-without a risk profile to `/risk-profile` (fails open on network errors).
+Toasts via `sonner`. There is no forced onboarding gate — new users land on the dashboard.
+
+### Model portfolios (`/portfolios`, `src/lib/model-portfolios.ts`)
+
+`/portfolios` is an **educational library** of four labelled example portfolios
+(conservative/balanced/growth/aggressive), NOT personalised advice — deliberately reframed
+to stay clear of *personal financial product advice* under the Corporations Act. The user
+can copy an example's category split into their own rebalance targets via
+`POST /api/portfolios/apply-template` (an explicit, self-directed choice). The buy recommender
+(`src/lib/rebalance.ts`) intentionally does **not** suggest specific ETFs for empty categories.
+The prior questionnaire-driven `/risk-profile` feature (quiz → personal tier → "your
+recommended ETFs" + `OnboardingGate`) is retired to `archive/risk-profile-quiz/` with a restore
+README; the `risk_profiles` table remains in `schema.ts` (no drop migration) so it can be revived.
 
 ## Workflow
 

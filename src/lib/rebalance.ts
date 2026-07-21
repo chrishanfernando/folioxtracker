@@ -1,26 +1,6 @@
 import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { calculateHoldings } from './calculations';
-import { TIER_PROFILES, type RiskTier, type EtfRecommendation } from './risk-profiling';
-import { fetchLivePriceAud } from './prices';
-
-/**
- * Look up tier-recommended ETFs for a given profile, filtered by category.
- * Returns the ETFs the user should hold in that category according to their
- * saved risk tier, or [] if no risk profile is saved.
- */
-async function tierEtfsForCategory(profileId: number | undefined, category: string): Promise<EtfRecommendation[]> {
-  if (!profileId) return [];
-  const rows = await db.select({ riskTier: schema.riskProfiles.riskTier })
-    .from(schema.riskProfiles)
-    .where(eq(schema.riskProfiles.profileId, profileId))
-    .limit(1);
-  if (rows.length === 0) return [];
-  const tier = rows[0].riskTier as RiskTier;
-  const profile = TIER_PROFILES[tier];
-  if (!profile) return [];
-  return profile.etfs.filter(e => e.category === category);
-}
 
 export interface CategoryAllocation {
   category: string;
@@ -124,29 +104,11 @@ export async function calculateBuyRecommendations(amountToInvest: number, profil
           };
         });
       } else {
-        // No existing holdings in this category — fall back to the ETFs the
-        // user's risk tier recommends for this category. Split the per-category
-        // amount proportionally to each ETF's portfolio weight, fetch live
-        // prices on the fly so the buy recommender works for brand-new users.
-        const tierEtfs = await tierEtfsForCategory(profileId, cat.category);
-        if (tierEtfs.length === 0) {
-          suggestedAssets = [];
-        } else {
-          const totalAllocInCategory = tierEtfs.reduce((s, e) => s + e.allocationPct, 0);
-          suggestedAssets = await Promise.all(tierEtfs.map(async (etf) => {
-            const ratio = totalAllocInCategory > 0 ? etf.allocationPct / totalAllocInCategory : 1 / tierEtfs.length;
-            const perAsset = amount * ratio;
-            const yahooSymbol = `${etf.ticker}.AX`;
-            const price = await fetchLivePriceAud(yahooSymbol);
-            return {
-              displayTicker: etf.ticker,
-              symbol: yahooSymbol,
-              amount: perAsset,
-              currentPrice: price,
-              units: price > 0 ? perAsset / price : 0,
-            };
-          }));
-        }
+        // No existing holdings in this category — the recommender reports how much
+        // to invest in the category but does not name specific products to buy.
+        // (The app deliberately does not recommend specific ETFs for a user; browse
+        // /portfolios for general example allocations.)
+        suggestedAssets = [];
       }
 
       recommendations.push({

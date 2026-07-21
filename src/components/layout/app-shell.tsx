@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart, Brain, LogOut, Menu, Percent } from 'lucide-react';
+import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart, BookOpen, LogOut, Menu, Percent } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/components/profile-context';
 import { useEffect, useState } from 'react';
@@ -16,7 +16,7 @@ const navItems = [
   { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { href: '/rebalance', label: 'Rebalance', icon: Target },
   { href: '/fees', label: 'Fees', icon: Percent },
-  { href: '/risk-profile', label: 'Risk Profile', icon: Brain },
+  { href: '/portfolios', label: 'Portfolios', icon: BookOpen },
   { href: '/import', label: 'Import', icon: Upload },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
