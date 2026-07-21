@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { LayoutDashboard, List, ArrowLeftRight, Target, Upload, Settings, Plus, ChevronDown, Pencil, LineChart, BookOpen, LogOut, Menu, Percent } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/components/profile-context';
@@ -23,7 +23,6 @@ const navItems = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { profiles, activeProfileId, activeProfile, setActiveProfileId, refreshProfiles } = useProfile();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNewProfile, setShowNewProfile] = useState(false);
@@ -42,12 +41,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (loggingOut) return;
     setLoggingOut(true);
     try {
-      await signOut();
-      router.push('/login');
+      // Better Auth's client signOut resolves with `{ data, error }` and does
+      // NOT throw on a non-2xx response — the failure is reported in `error`.
+      // Previously that error was ignored and we redirected to /login
+      // regardless, so a failed sign-out left the session cookie intact while
+      // the UI implied the user was logged out. On mobile this surfaced as:
+      // "log out" → login page, but editing the URL back to / (which redirects
+      // authed users to /dashboard) still showed the user's real data.
+      const res = await signOut();
+      if (res?.error) throw new Error(res.error.message ?? 'sign-out failed');
     } catch {
-      toast.error('Failed to log out');
+      toast.error('Failed to log out. Please try again.');
       setLoggingOut(false);
+      return;
     }
+    // Use a full document navigation rather than router.push: this tears down
+    // all in-memory React state, the Next.js Router Cache, and any bfcache
+    // snapshot of authenticated pages, and forces a fresh unauthenticated
+    // request so the now-cleared session cookie actually takes effect.
+    window.location.href = '/login';
   }
 
   async function renameProfile() {

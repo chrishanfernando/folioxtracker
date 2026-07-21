@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -51,7 +50,6 @@ function findRun(rows: CronStatusRow[], jobName: string): string | null {
 }
 
 export default function SettingsPage() {
-  const router = useRouter();
   const { activeProfileId, profileFetch } = useProfile();
   const [email, setEmail] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(false);
@@ -84,6 +82,7 @@ export default function SettingsPage() {
   const [confirmEmail, setConfirmEmail] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -250,8 +249,22 @@ export default function SettingsPage() {
   }
 
   async function logout() {
-    await signOut();
-    router.push('/login');
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      // signOut resolves with `{ data, error }` and does not throw on a
+      // non-2xx response, so the error must be checked explicitly — otherwise a
+      // failed sign-out leaves the session cookie intact while the UI navigates
+      // to /login as if the user were logged out.
+      const res = await signOut();
+      if (res?.error) throw new Error(res.error.message ?? 'sign-out failed');
+    } catch {
+      toast.error('Failed to log out. Please try again.');
+      setLoggingOut(false);
+      return;
+    }
+    // Full document navigation so no cached authenticated state survives.
+    window.location.href = '/login';
   }
 
   async function openDeleteDialog() {
@@ -290,7 +303,8 @@ export default function SettingsPage() {
         return;
       }
       toast.success('Account deleted');
-      router.push('/login');
+      // Full document navigation so no cached authenticated state survives.
+      window.location.href = '/login';
     } finally {
       setDeleting(false);
     }
@@ -523,7 +537,7 @@ export default function SettingsPage() {
 
         <div className="flex gap-2">
           <Button onClick={saveSettings}>Save Settings</Button>
-          <Button variant="outline" onClick={logout}>Logout</Button>
+          <Button variant="outline" onClick={logout} disabled={loggingOut}>{loggingOut ? 'Logging out…' : 'Logout'}</Button>
         </div>
 
         <Card className="border-destructive/40">
