@@ -19,6 +19,20 @@ function getReplyTo() {
   return env.EMAIL_REPLY_TO;
 }
 
+type SendPayload = Parameters<Resend['emails']['send']>[0];
+
+// Resend's SDK returns { data, error } rather than throwing on API-level
+// failures (bad key, unverified domain, rate limit). Surface those as thrown
+// errors so callers (Better Auth verification/reset flows) don't silently
+// believe an email went out.
+async function send(payload: SendPayload) {
+  const { data, error } = await getResend().emails.send(payload);
+  if (error) {
+    throw new Error(`Resend send failed: ${error.message ?? JSON.stringify(error)}`);
+  }
+  return data;
+}
+
 export async function sendRebalanceAlert(
   to: string,
   drifts: { category: string; currentPct: number; targetPct: number; driftPct: number }[]
@@ -33,7 +47,7 @@ export async function sendRebalanceAlert(
 
   const unsubscribeMailto = env.EMAIL_UNSUBSCRIBE_MAILTO;
 
-  await getResend().emails.send({
+  await send({
     from: getFrom(),
     to,
     replyTo: getReplyTo(),
@@ -54,7 +68,7 @@ export async function sendRebalanceAlert(
 }
 
 export async function sendVerificationEmail(to: string, url: string) {
-  await getResend().emails.send({
+  await send({
     from: getFrom(),
     to,
     replyTo: getReplyTo(),
@@ -70,7 +84,7 @@ export async function sendVerificationEmail(to: string, url: string) {
 }
 
 export async function sendPasswordResetEmail(to: string, url: string) {
-  await getResend().emails.send({
+  await send({
     from: getFrom(),
     to,
     replyTo: getReplyTo(),
