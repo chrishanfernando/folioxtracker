@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-56 md:flex-col border-r">
         <div className="flex flex-col flex-1 pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4 mb-2">
-            <h1 className="text-lg font-semibold">Portfolio Tracker</h1>
+            <h1 className="text-lg font-semibold">FolioX Tracker</h1>
           </div>
 
           {/* Profile Selector */}
@@ -265,7 +265,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile profile selector - top bar */}
       <div className="md:hidden fixed top-0 inset-x-0 bg-background border-b z-50 px-4 py-2 flex items-center justify-between">
-        <span className="text-sm font-semibold">Portfolio Tracker</span>
+        <span className="text-sm font-semibold">FolioX Tracker</span>
         <div className="relative">
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}

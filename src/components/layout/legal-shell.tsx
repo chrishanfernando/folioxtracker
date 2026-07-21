@@ -5,7 +5,7 @@ export function LegalShell({ title, lastUpdated, children }: { title: string; la
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="font-semibold">{'{{BRAND}}'}</Link>
+          <Link href="/" className="font-semibold">FolioX Tracker</Link>
           <nav className="flex gap-4 text-sm text-muted-foreground">
             <Link href="/disclaimer" className="hover:text-foreground">Disclaimer</Link>
             <Link href="/terms" className="hover:text-foreground">Terms</Link>

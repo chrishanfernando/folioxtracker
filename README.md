@@ -22,8 +22,8 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui · 
 ## Getting started
 
 ```bash
-git clone git@github.com:chrishanfernando/portfolio-app.git
-cd portfolio-app
+git clone git@github.com:chrishanfernando/folioxtracker.git
+cd folioxtracker
 npm install
 cp .env.example .env.local
 # edit .env.local — at minimum set JWT_SECRET and CRON_SECRET

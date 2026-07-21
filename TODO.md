@@ -12,12 +12,11 @@ fees & cost transparency (PR #48).
 
 ## 1. Launch blockers
 
-- [ ] **Replace `{{BRAND}}` / `{{LEGAL_ENTITY}}` / `{{SUPPORT_EMAIL}}` placeholders** —
-      13 literal occurrences render on public pages. Files: `src/app/page.tsx`
-      (title, header, footer, contact mailto), `src/app/terms/page.tsx`,
-      `src/app/privacy/page.tsx`, `src/app/disclaimer/page.tsx`,
-      `src/components/layout/legal-shell.tsx`. Find with `grep -rn "{{[A-Z_]*}}" src/`.
-      Blocked on: the real brand name, legal entity, and support email.
+- [x] **Replace `{{BRAND}}` / `{{LEGAL_ENTITY}}` / `{{SUPPORT_EMAIL}}` placeholders** —
+      resolved 2026-07-21. Brand = **FolioX Tracker** (domain `folioxtracker.com`),
+      legal entity = FolioX Tracker, support/contact = `hello@folioxtracker.com`. Swept
+      landing, legal pages, root/login/app-shell chrome, email templates, and
+      `.env.example`. Verify with `grep -rn "{{[A-Z_]*}}" src/` (should be empty).
 - [ ] **Reconcile the local working tree** — the local checkout sits on the old
       `security/launch-security-fixes` branch with uncommitted WIP (Sentry
       instrumentation files, env/middleware/auth edits, landing-page changes).

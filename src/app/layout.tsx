@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Portfolio Tracker',
-  description: 'Personal investment portfolio tracker',
+  title: 'FolioX Tracker',
+  description: 'Track your Australian investment portfolio across brokers, in one AUD view.',
 };
 
 export default function RootLayout({

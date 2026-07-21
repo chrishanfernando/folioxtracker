@@ -1,6 +1,6 @@
 ## Context
 
-The portfolio-app is functional as a personal tool but the June 2026 audit surfaced ten concrete issues that block letting external users sign up. They fall into three buckets:
+FolioX Tracker is functional as a personal tool but the June 2026 audit surfaced ten concrete issues that block letting external users sign up. They fall into three buckets:
 
 1. **Trust-boundary holes** — no zod validation on API bodies; the `priceAud`, `quantity`, and similar numeric fields flow into the DB as whatever the client sends. File uploads and IMAP attachments parse without size limits or timeouts.
 2. **Multi-tenant scope bugs** — `fetchCurrentPrices`/`fetchHistoricalPrices` operate on every active asset across every user, so any authenticated user can amplify Yahoo traffic and trigger writes for assets they don't own. The singleton `settings` row is updated without a `WHERE` clause, and its cron timestamps are used as global cooldowns that one user can starve. The CMC IMAP poller routes attachments by `cmc_account_number` with no ownership proof.

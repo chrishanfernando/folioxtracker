@@ -1,13 +1,13 @@
 import { LegalShell } from '@/components/layout/legal-shell';
 
-export const metadata = { title: 'Disclaimer — {{BRAND}}' };
+export const metadata = { title: 'Disclaimer — FolioX Tracker' };
 
 export default function DisclaimerPage() {
   return (
     <LegalShell title="Disclaimer" lastUpdated="2026-07-02">
       <h2 className="text-xl font-semibold mt-2">Not financial advice</h2>
       <p>
-        {'{{BRAND}}'} is a personal record-keeping and analytics tool. The
+        FolioX Tracker is a personal record-keeping and analytics tool. The
         information it displays — including holdings, valuations, allocation
         drift, rebalance suggestions, gain/loss figures, and CAGR — is for
         general informational purposes only. It is <strong>not</strong>{' '}

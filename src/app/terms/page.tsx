@@ -1,13 +1,13 @@
 import { LegalShell } from '@/components/layout/legal-shell';
 
-export const metadata = { title: 'Terms of Service — {{BRAND}}' };
+export const metadata = { title: 'Terms of Service — FolioX Tracker' };
 
 export default function TermsPage() {
   return (
     <LegalShell title="Terms of Service" lastUpdated="2026-07-02">
       <p className="text-muted-foreground">
-        These Terms govern your use of {'{{BRAND}}'} (&quot;the
-        service&quot;), operated by {'{{LEGAL_ENTITY}}'} (&quot;we&quot;,
+        These Terms govern your use of FolioX Tracker (&quot;the
+        service&quot;), operated by FolioX Tracker (&quot;we&quot;,
         &quot;us&quot;). By creating an account or using the service, you
         agree to these Terms. If you do not agree, do not use the service.
       </p>
@@ -23,7 +23,7 @@ export default function TermsPage() {
       <p>
         You are responsible for keeping your sign-in credentials secure and
         for all activity that occurs under your account. Notify us
-        immediately at chriz999@gmail.com if you suspect unauthorised access.
+        immediately at hello@folioxtracker.com if you suspect unauthorised access.
       </p>
 
       <h2 className="text-xl font-semibold mt-6">3. Acceptable use</h2>
@@ -57,7 +57,7 @@ export default function TermsPage() {
 
       <h2 className="text-xl font-semibold mt-6">6. No financial advice</h2>
       <p>
-        Portfolio Tracker is informational only and does not provide
+        FolioX Tracker is informational only and does not provide
         financial, investment, tax, or legal advice. See the{' '}
         <a href="/disclaimer" className="underline">Disclaimer</a>.
       </p>
@@ -128,7 +128,7 @@ export default function TermsPage() {
       <h2 className="text-xl font-semibold mt-6">12. Contact</h2>
       <p>
         Questions about these Terms? Email{' '}
-        <a href="mailto:chriz999@gmail.com" className="underline">chriz999@gmail.com</a>.
+        <a href="mailto:hello@folioxtracker.com" className="underline">hello@folioxtracker.com</a>.
       </p>
     </LegalShell>
   );

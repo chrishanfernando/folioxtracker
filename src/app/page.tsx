@@ -13,7 +13,7 @@ import {
 import { getSessionUser } from '@/lib/auth-helpers';
 
 export const metadata = {
-  title: '{{BRAND}} — Track your Australian investment portfolio',
+  title: 'FolioX Tracker — Track your Australian investment portfolio',
   description:
     'Aggregate your CMC, Stake, Swyftx and Independent Reserve holdings. AUD-normalised. Daily prices. Rebalance targets. Built for Australian DIY investors.',
 };
@@ -39,7 +39,7 @@ function Header() {
     <header className="border-b">
       <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
         <Link href="/" className="font-semibold text-lg">
-          {'{{BRAND}}'}
+          FolioX Tracker
         </Link>
         <nav className="flex items-center gap-6 text-sm">
           <Link href="/login" className="text-muted-foreground hover:text-foreground">
@@ -193,13 +193,13 @@ function Footer() {
   return (
     <footer className="border-t">
       <div className="mx-auto max-w-6xl px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} {'{{LEGAL_ENTITY}}'}. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} FolioX Tracker. All rights reserved.</p>
         <nav className="flex items-center gap-5">
           <Link href="/disclaimer" className="hover:text-foreground">Disclaimer</Link>
           <Link href="/terms" className="hover:text-foreground">Terms</Link>
           <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
           <a
-            href="mailto:{{SUPPORT_EMAIL}}"
+            href="mailto:hello@folioxtracker.com"
             className="inline-flex items-center gap-1 hover:text-foreground"
           >
             <Mail className="h-3.5 w-3.5" /> Contact

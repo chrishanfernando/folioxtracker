@@ -49,7 +49,7 @@ function LoginForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle className="text-2xl">Sign in</CardTitle>
-        <CardDescription>Welcome back to Portfolio Tracker.</CardDescription>
+        <CardDescription>Welcome back to FolioX Tracker.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button type="button" variant="outline" className="w-full" onClick={handleGoogle} disabled={loading}>

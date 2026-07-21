@@ -1,13 +1,13 @@
 import { LegalShell } from '@/components/layout/legal-shell';
 
-export const metadata = { title: 'Privacy Policy — {{BRAND}}' };
+export const metadata = { title: 'Privacy Policy — FolioX Tracker' };
 
 export default function PrivacyPage() {
   return (
     <LegalShell title="Privacy Policy" lastUpdated="2026-07-02">
       <p className="text-muted-foreground">
-        This Privacy Policy explains how {'{{BRAND}}'} (operated by
-        {' '}{'{{LEGAL_ENTITY}}'}, &quot;we&quot;, &quot;us&quot;)
+        This Privacy Policy explains how FolioX Tracker (operated by
+        {' '}FolioX Tracker, &quot;we&quot;, &quot;us&quot;)
         collects, uses, and protects your personal information. We comply
         with the <em>Australian Privacy Principles</em> under the{' '}
         <em>Privacy Act 1988</em> (Cth) and, where applicable, the GDPR.
@@ -163,7 +163,7 @@ export default function PrivacyPage() {
         bcrypt; both are one-way). Sessions are signed and stored
         server-side. Connections to the application are encrypted with
         HTTPS. No system is perfectly secure — please choose a strong,
-        unique password and notify us at chriz999@gmail.com if you suspect
+        unique password and notify us at hello@folioxtracker.com if you suspect
         unauthorised access.
       </p>
 
@@ -185,7 +185,7 @@ export default function PrivacyPage() {
       <h2 className="text-xl font-semibold mt-6">11. Contact</h2>
       <p>
         For privacy questions or to exercise the rights above, email{' '}
-        <a href="mailto:chriz999@gmail.com" className="underline">chriz999@gmail.com</a>.
+        <a href="mailto:hello@folioxtracker.com" className="underline">hello@folioxtracker.com</a>.
       </p>
     </LegalShell>
   );

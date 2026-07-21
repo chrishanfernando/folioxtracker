@@ -10,7 +10,7 @@ function getResend() {
 
 function getFrom() {
   if (!env.EMAIL_FROM) {
-    throw new Error('EMAIL_FROM is not set. Configure a verified sender (e.g. "Portfolio Tracker <no-reply@mail.yourdomain.com>").');
+    throw new Error('EMAIL_FROM is not set. Configure a verified sender (e.g. "FolioX Tracker <no-reply@mail.folioxtracker.com>").');
   }
   return env.EMAIL_FROM;
 }
@@ -41,14 +41,14 @@ export async function sendRebalanceAlert(
     headers: unsubscribeMailto
       ? { 'List-Unsubscribe': `<mailto:${unsubscribeMailto}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' }
       : undefined,
-    text: `Portfolio Allocation Drift Detected\n\n${driftText}\n\nLog in to your portfolio tracker to review and rebalance.`,
+    text: `Portfolio Allocation Drift Detected\n\n${driftText}\n\nLog in to FolioX Tracker to review and rebalance.`,
     html: `
       <h2>Portfolio Allocation Drift Detected</h2>
       <table border="1" cellpadding="8" cellspacing="0">
         <tr><th>Category</th><th>Current</th><th>Target</th><th>Drift</th></tr>
         ${driftRows}
       </table>
-      <p>Log in to your portfolio tracker to review and rebalance.</p>
+      <p>Log in to FolioX Tracker to review and rebalance.</p>
     `,
   });
 }
@@ -59,9 +59,9 @@ export async function sendVerificationEmail(to: string, url: string) {
     to,
     replyTo: getReplyTo(),
     subject: 'Verify your email',
-    text: `Welcome to Portfolio Tracker.\n\nVerify your email by opening this link:\n${url}\n\nIf you didn't sign up, you can ignore this email.`,
+    text: `Welcome to FolioX Tracker.\n\nVerify your email by opening this link:\n${url}\n\nIf you didn't sign up, you can ignore this email.`,
     html: `
-      <h2>Welcome to Portfolio Tracker</h2>
+      <h2>Welcome to FolioX Tracker</h2>
       <p>Click the link below to verify your email address:</p>
       <p><a href="${url}">Verify email</a></p>
       <p>If you didn't sign up, you can ignore this email.</p>

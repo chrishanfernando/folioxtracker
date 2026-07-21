@@ -159,9 +159,11 @@ without a risk profile to `/risk-profile` (fails open on network errors).
 
 ## Current known state (as of 2026-07-19)
 
-- **Launch blocker**: `{{BRAND}}` / `{{LEGAL_ENTITY}}` / `{{SUPPORT_EMAIL}}` placeholders
-  render literally on the landing + legal pages (`grep -rn "{{[A-Z_]*}}" src/`). They need
-  real values from the owner.
+- **Brand**: the product is **FolioX Tracker** at `folioxtracker.com`; legal entity is
+  FolioX Tracker (sole operator); support/contact is `hello@folioxtracker.com`. The old
+  `{{BRAND}}` / `{{LEGAL_ENTITY}}` / `{{SUPPORT_EMAIL}}` placeholders were filled in
+  2026-07-21 (landing, legal pages, chrome, email templates, `.env.example`). Sender
+  identity still needs a Resend-verified `folioxtracker.com` domain before prod email works.
 - Sentry is fully wired (instrumentation files, apiError, error boundaries) but inert
   until `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are set in the deploy environment.
 - IR fee extraction is deferred: `public/samples/independent-reserve-sample.csv` does not
