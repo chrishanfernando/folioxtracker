@@ -41,7 +41,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  return NextResponse.next();
+  // Authenticated responses hold personal financial data. Mark them no-store so
+  // the browser (and any intermediary) never caches or restores them from
+  // bfcache — otherwise a logged-out user can still be shown their previously
+  // rendered dashboard by navigating back or re-entering the URL.
+  const response = NextResponse.next();
+  response.headers.set('Cache-Control', 'no-store, must-revalidate');
+  return response;
 }
 
 export const config = {
