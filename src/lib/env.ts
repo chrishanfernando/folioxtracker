@@ -30,6 +30,11 @@ const baseSchema = z.object({
   DATABASE_AUTH_TOKEN: emptyToUndefined,
   BETTER_AUTH_URL: optionalUrl,
   NEXT_PUBLIC_APP_URL: optionalUrl,
+  // Comma-separated list of extra origins to trust for Better Auth's CSRF /
+  // redirect checks, beyond BETTER_AUTH_URL / NEXT_PUBLIC_APP_URL and their
+  // auto-derived apex/www siblings. Rarely needed; use for an additional custom
+  // domain. Each entry must be a full origin, e.g. "https://app.example.com".
+  TRUSTED_ORIGINS: emptyToUndefined,
   BETTER_AUTH_SECRET: emptyToUndefined,
   JWT_SECRET: emptyToUndefined,
   CRON_SECRET: emptyToUndefined,
@@ -115,6 +120,10 @@ function parseEnv() {
     DATABASE_AUTH_TOKEN: parsed.DATABASE_AUTH_TOKEN,
     BETTER_AUTH_URL: parsed.BETTER_AUTH_URL ?? parsed.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
     NEXT_PUBLIC_APP_URL: parsed.NEXT_PUBLIC_APP_URL,
+    TRUSTED_ORIGINS: (parsed.TRUSTED_ORIGINS ?? '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
     BETTER_AUTH_SECRET: betterAuthSecret,
     CRON_SECRET: parsed.CRON_SECRET,
     GOOGLE_CLIENT_ID: parsed.GOOGLE_CLIENT_ID ?? '',

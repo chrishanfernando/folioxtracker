@@ -29,14 +29,43 @@ async function hashPassword(password: string): Promise<string> {
 
 const baseURL = env.BETTER_AUTH_URL;
 
-// In development, trust the request's own origin if it's on a private LAN.
-// This lets you test from another device on the same WiFi (e.g. phone hitting
-// http://192.168.x.x:3000) without hard-coding every machine's IP.
-// In production, only the configured baseURL is trusted.
+// Better Auth runs a CSRF origin check on every state-changing request that
+// carries a cookie (e.g. sign-out), rejecting it with 403 INVALID_ORIGIN
+// unless the browser's Origin header EXACTLY matches a trusted origin. A
+// single configured URL is fragile: an apex-vs-www difference or a trailing
+// slash on BETTER_AUTH_URL silently breaks logout for real users. Expand each
+// configured URL to its normalised origin (which drops any trailing slash /
+// path) plus its apex/www sibling so those common mismatches are tolerated.
+function expandOrigin(value: string | undefined | null): string[] {
+  if (!value) return [];
+  try {
+    const url = new URL(value);
+    const portSuffix = url.port ? `:${url.port}` : '';
+    const sibling = url.hostname.startsWith('www.')
+      ? url.hostname.slice(4)
+      : `www.${url.hostname}`;
+    return [url.origin, `${url.protocol}//${sibling}${portSuffix}`];
+  } catch {
+    return [];
+  }
+}
+
+// Origins always trusted for CSRF/redirect validation: the configured app
+// URL(s) and their apex/www siblings, plus any explicit TRUSTED_ORIGINS entries
+// (comma-separated env var) for additional domains.
+const configuredTrustedOrigins = Array.from(new Set([
+  ...expandOrigin(baseURL),
+  ...expandOrigin(env.NEXT_PUBLIC_APP_URL),
+  ...env.TRUSTED_ORIGINS,
+]));
+
+// In development, additionally trust the request's own origin if it's on a
+// private LAN. This lets you test from another device on the same WiFi (e.g. a
+// phone hitting http://192.168.x.x:3000) without hard-coding every machine's IP.
 const isDev = !env.IS_PROD;
 const PRIVATE_HOST_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/;
 function resolveTrustedOrigins(request?: Request): string[] {
-  const fixed = [baseURL];
+  const fixed = configuredTrustedOrigins;
   if (!isDev || !request) return fixed;
   const origin = request.headers.get('origin') || request.headers.get('referer');
   if (!origin) return fixed;
