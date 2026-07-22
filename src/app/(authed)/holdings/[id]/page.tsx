@@ -431,10 +431,16 @@ export default function AssetDetailPage() {
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th
-                    className="text-left py-2 cursor-pointer select-none hover:text-foreground"
-                    onClick={() => setDateSort(d => d === 'asc' ? 'desc' : 'asc')}
+                    className="text-left py-2"
+                    aria-sort={dateSort === 'asc' ? 'ascending' : 'descending'}
                   >
-                    Date {dateSort === 'asc' ? '↑' : '↓'}
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 select-none hover:text-foreground"
+                      onClick={() => setDateSort(d => d === 'asc' ? 'desc' : 'asc')}
+                    >
+                      Date {dateSort === 'asc' ? '↑' : '↓'}
+                    </button>
                   </th>
                   <th className="text-left py-2">Action</th>
                   <th className="text-left py-2 hidden md:table-cell">Platform</th>

@@ -473,13 +473,19 @@ export default function DashboardPage() {
                   {([['cost', 'Cost'], ['value', 'Value'], ['pl', 'P&L'], ['return', 'Return'], ['cagr', 'CAGR']] as const).map(([key, label]) => (
                     <th
                       key={key}
-                      className="text-right py-2 pr-4 cursor-pointer select-none hover:text-foreground transition-colors"
-                      onClick={() => {
-                        if (sortBy === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
-                        else { setSortBy(key); setSortDir('desc'); }
-                      }}
+                      className="text-right py-2 pr-4"
+                      aria-sort={sortBy === key ? (sortDir === 'desc' ? 'descending' : 'ascending') : 'none'}
                     >
-                      {label} {sortBy === key ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 select-none hover:text-foreground transition-colors"
+                        onClick={() => {
+                          if (sortBy === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+                          else { setSortBy(key); setSortDir('desc'); }
+                        }}
+                      >
+                        {label} {sortBy === key ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+                      </button>
                     </th>
                   ))}
                 </tr>
