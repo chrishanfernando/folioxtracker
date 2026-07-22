@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 
 interface Profile {
   id: number;
@@ -21,10 +21,26 @@ const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  // 0 = not yet resolved; profileFetch omits the x-profile-id header in this
-  // state so the server falls back to the user's first owned profile rather
-  // than 404-ing on a default that might not belong to this user.
-  const [activeProfileId, setActiveProfileIdState] = useState<number>(0);
+  // Seed from localStorage synchronously so a returning user's very first data
+  // fetch already carries the correct x-profile-id header — this avoids a
+  // second, redundant fetch of every page once /api/profiles resolves (the
+  // 0 → real-id transition used to re-trigger every page's fetch effect).
+  // 0 = unknown (first-ever load): profileFetch omits the header and the server
+  // falls back to / lazily creates the user's first profile. `refreshProfiles`
+  // still validates the seeded id and corrects it if it belongs to a prior
+  // (different) user on this browser.
+  const [activeProfileId, setActiveProfileIdState] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    const stored = parseInt(localStorage.getItem('activeProfileId') || '');
+    return Number.isNaN(stored) || stored <= 0 ? 0 : stored;
+  });
+
+  // Latest-value ref so `profileFetch` can stay referentially stable (empty
+  // deps) instead of changing identity whenever activeProfileId changes — a
+  // changing profileFetch cascaded into every page's fetch callback/effect and
+  // caused duplicate requests.
+  const activeIdRef = useRef(activeProfileId);
+  activeIdRef.current = activeProfileId;
 
   const refreshProfiles = useCallback(async () => {
     const res = await fetch('/api/profiles');
@@ -56,9 +72,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const profileFetch = useCallback((url: string, options?: RequestInit) => {
     const headers = new Headers(options?.headers);
-    if (activeProfileId > 0) headers.set('x-profile-id', String(activeProfileId));
+    const id = activeIdRef.current;
+    if (id > 0) headers.set('x-profile-id', String(id));
     return fetch(url, { ...options, headers });
-  }, [activeProfileId]);
+  }, []);
 
   const activeProfile = profiles.find(p => p.id === activeProfileId);
 

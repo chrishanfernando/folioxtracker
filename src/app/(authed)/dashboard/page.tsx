@@ -152,9 +152,18 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setLoading(true);
-    // Initial load: fetch prices then dashboard data
+    // Show computed data as soon as it's ready — do NOT block first paint behind
+    // the slow, sometimes rate-limited Yahoo price refresh (previously the
+    // dashboard fetch was chained off `.finally()` of /api/prices/fetch).
+    fetchData();
+
+    // Refresh prices in the background, then re-pull just the dashboard summary
+    // so fresh quotes appear without gating the initial render.
     fetch('/api/prices/fetch', { method: 'POST' })
-      .finally(() => fetchData());
+      .then(() => profileFetch('/api/dashboard'))
+      .then(r => (r.ok ? r.json() : null))
+      .then(json => { if (json?.summary) setData(json); })
+      .catch(() => {});
 
     // Auto-refresh every 60 seconds while page is visible
     const interval = setInterval(() => {
