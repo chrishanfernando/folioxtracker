@@ -81,7 +81,10 @@ export const assets = sqliteTable('assets', {
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   // Management expense ratio in basis points; null = unknown (not zero).
   merBps: integer('mer_bps'),
-});
+}, (table) => [
+  // Holdings/history/summary all filter assets by profile.
+  index('assets_profile_idx').on(table.profileId),
+]);
 
 export const transactions = sqliteTable('transactions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -101,7 +104,11 @@ export const transactions = sqliteTable('transactions', {
   // Brokerage/commission in AUD; null = unknown. total_aud remains gross
   // (fees included) — see openspec/changes/fees-cost-transparency/design.md.
   feeAud: real('fee_aud'),
-});
+}, (table) => [
+  // The hot path scopes transactions by assetId (inArray) and orders by date;
+  // this composite covers both the lookup and the sort.
+  index('transactions_asset_date_idx').on(table.assetId, table.date),
+]);
 
 export const prices = sqliteTable('prices', {
   id: integer('id').primaryKey({ autoIncrement: true }),

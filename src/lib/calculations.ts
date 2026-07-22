@@ -1,5 +1,5 @@
 import { db, schema } from '@/db';
-import { eq, and, desc, asc, inArray } from 'drizzle-orm';
+import { eq, and, asc, inArray, sql } from 'drizzle-orm';
 import { ensureBenchmarkAssetExists } from './prices';
 
 export interface HoldingSnapshot {
@@ -63,21 +63,52 @@ async function buildYahooSymbolToAssetIds(): Promise<Map<string, number[]>> {
   return map;
 }
 
-// Get latest price for an asset, falling back to sibling asset IDs with the same yahooSymbol
-async function getLatestPriceForAsset(
-  assetId: number,
-  yahooSymbol: string,
+// Batch the "latest price per yahooSymbol" lookup into a single query, replacing
+// a per-asset N+1. For each yahooSymbol used by `assets`, returns the most recent
+// priceAud across all sibling asset IDs that share the symbol — identical to
+// running the old getLatestPriceForAsset (orderBy date desc, limit 1) per asset.
+async function getLatestPriceByYahoo(
+  assets: { yahooSymbol: string }[],
   yahooMap: Map<string, number[]>,
-): Promise<number> {
-  // Look up latest price across all sibling assets with same yahooSymbol
-  const allIds = yahooMap.get(yahooSymbol) || [assetId];
+): Promise<Map<string, number>> {
+  const relatedIds = new Set<number>();
+  const idToYahoo = new Map<number, string>();
+  for (const a of assets) {
+    for (const id of yahooMap.get(a.yahooSymbol) || []) {
+      relatedIds.add(id);
+      idToYahoo.set(id, a.yahooSymbol);
+    }
+  }
+  const latest = new Map<string, number>();
+  if (relatedIds.size === 0) return latest;
 
-  const result = await db.select()
+  // Fetch only the newest price row per related asset (correlated MAX(date))
+  // rather than the asset's whole price history — one row per asset. Ascending
+  // order means the last write per yahooSymbol wins = latest date across siblings.
+  const ids = [...relatedIds];
+  const rows = await db.select({ assetId: schema.prices.assetId, date: schema.prices.date, priceAud: schema.prices.priceAud })
     .from(schema.prices)
-    .where(inArray(schema.prices.assetId, allIds))
-    .orderBy(desc(schema.prices.date))
-    .limit(1);
-  return result[0]?.priceAud || 0;
+    .where(and(
+      inArray(schema.prices.assetId, ids),
+      eq(schema.prices.date, sql`(select max(p2.date) from prices p2 where p2.asset_id = ${schema.prices.assetId})`),
+    ))
+    .orderBy(asc(schema.prices.date));
+  for (const r of rows) {
+    const ys = idToYahoo.get(r.assetId);
+    if (ys !== undefined) latest.set(ys, r.priceAud);
+  }
+  return latest;
+}
+
+// Group a flat, date-ascending transaction list by assetId, preserving order.
+function groupTxsByAsset<T extends { assetId: number }>(txs: T[]): Map<number, T[]> {
+  const map = new Map<number, T[]>();
+  for (const t of txs) {
+    const arr = map.get(t.assetId);
+    if (arr) arr.push(t);
+    else map.set(t.assetId, [t]);
+  }
+  return map;
 }
 
 export async function calculateHoldings(profileId?: number): Promise<HoldingSnapshot[]> {
@@ -85,14 +116,22 @@ export async function calculateHoldings(profileId?: number): Promise<HoldingSnap
     ? and(eq(schema.assets.isActive, true), eq(schema.assets.profileId, profileId))
     : eq(schema.assets.isActive, true);
   const allAssets = await db.select().from(schema.assets).where(assetFilter);
-  const allTransactions = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.date));
+  if (allAssets.length === 0) return [];
+
+  // Only load transactions for this profile's assets (was a full-table scan).
+  const assetIds = allAssets.map(a => a.id);
+  const scopedTransactions = await db.select().from(schema.transactions)
+    .where(inArray(schema.transactions.assetId, assetIds))
+    .orderBy(asc(schema.transactions.date));
+  const txsByAsset = groupTxsByAsset(scopedTransactions);
   const yahooMap = await buildYahooSymbolToAssetIds();
+  const latestPriceByYahoo = await getLatestPriceByYahoo(allAssets, yahooMap);
 
   const holdings: HoldingSnapshot[] = [];
 
   for (const asset of allAssets) {
-    const txs = allTransactions.filter(t => t.assetId === asset.id);
-    if (txs.length === 0) continue;
+    const txs = txsByAsset.get(asset.id);
+    if (!txs || txs.length === 0) continue;
 
     let totalQty = 0;
     let totalCost = 0;
@@ -111,7 +150,7 @@ export async function calculateHoldings(profileId?: number): Promise<HoldingSnap
 
     if (totalQty <= 0.0001) continue;
 
-    const currentPrice = await getLatestPriceForAsset(asset.id, asset.yahooSymbol, yahooMap);
+    const currentPrice = latestPriceByYahoo.get(asset.yahooSymbol) || 0;
     const marketValue = totalQty * currentPrice;
     const avgCost = totalCost / totalQty;
 
@@ -151,13 +190,19 @@ export async function calculateClosedHoldings(profileId?: number): Promise<Close
   const allAssets = assetFilter
     ? await db.select().from(schema.assets).where(assetFilter)
     : await db.select().from(schema.assets);
-  const allTransactions = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.date));
+  if (allAssets.length === 0) return [];
+
+  const assetIds = allAssets.map(a => a.id);
+  const scopedTransactions = await db.select().from(schema.transactions)
+    .where(inArray(schema.transactions.assetId, assetIds))
+    .orderBy(asc(schema.transactions.date));
+  const txsByAsset = groupTxsByAsset(scopedTransactions);
 
   const closed: ClosedHolding[] = [];
 
   for (const asset of allAssets) {
-    const txs = allTransactions.filter(t => t.assetId === asset.id);
-    if (txs.length === 0) continue;
+    const txs = txsByAsset.get(asset.id);
+    if (!txs || txs.length === 0) continue;
 
     let totalQty = 0;
     let totalCost = 0;
@@ -211,14 +256,18 @@ export async function calculatePortfolioSummary(profileId?: number): Promise<Por
   const profitLoss = totalValue - totalCost;
   const returnPct = totalCost > 0 ? (profitLoss / totalCost) * 100 : 0;
 
-  // CAGR: get earliest transaction date for this profile's assets
+  // CAGR: get earliest transaction date. Only the single earliest row is needed
+  // (was a full-table scan). For a profile, restrict to its holdings' assets;
+  // otherwise the globally earliest transaction, matching the prior behaviour.
   const assetIds = holdings.map(h => h.assetId);
   let cagr = 0;
   if (assetIds.length > 0) {
-    const allTxs = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.date));
-    const firstTx = profileId
-      ? allTxs.find(t => holdings.some(h => h.assetId === t.assetId))
-      : allTxs[0];
+    const firstTxRows = await db.select({ assetId: schema.transactions.assetId, date: schema.transactions.date })
+      .from(schema.transactions)
+      .where(profileId ? inArray(schema.transactions.assetId, assetIds) : undefined)
+      .orderBy(asc(schema.transactions.date))
+      .limit(1);
+    const firstTx = firstTxRows[0];
 
     if (firstTx && totalCost > 0) {
       const startDate = new Date(firstTx.date);
@@ -265,9 +314,14 @@ export async function getPortfolioValueHistory(profileId?: number): Promise<{ da
   const allAssets = assetFilter
     ? await db.select().from(schema.assets).where(assetFilter)
     : await db.select().from(schema.assets);
-  const assetIds = new Set(allAssets.map(a => a.id));
-  const allTransactions = (await db.select().from(schema.transactions).orderBy(asc(schema.transactions.date)))
-    .filter(t => assetIds.has(t.assetId));
+  if (allAssets.length === 0) return [];
+
+  // Scope transactions to this profile's assets (was a full-table scan + filter).
+  const assetIds = allAssets.map(a => a.id);
+  const scopedTransactions = await db.select().from(schema.transactions)
+    .where(inArray(schema.transactions.assetId, assetIds))
+    .orderBy(asc(schema.transactions.date));
+  const txsByAsset = groupTxsByAsset(scopedTransactions);
 
   // Build yahooSymbol → sibling asset IDs map for cross-profile price lookup
   const yahooMap = await buildYahooSymbolToAssetIds();
@@ -279,11 +333,15 @@ export async function getPortfolioValueHistory(profileId?: number): Promise<{ da
     for (const id of siblings) allRelatedAssetIds.add(id);
   }
 
-  // Load all prices for related assets
-  const allPrices = (await db.select().from(schema.prices).orderBy(asc(schema.prices.date)))
-    .filter(p => allRelatedAssetIds.has(p.assetId));
+  // Load only prices for related assets (was a full-table scan + filter).
+  const allPrices = allRelatedAssetIds.size === 0 ? [] : await db.select({
+      assetId: schema.prices.assetId, date: schema.prices.date, priceAud: schema.prices.priceAud,
+    })
+    .from(schema.prices)
+    .where(inArray(schema.prices.assetId, [...allRelatedAssetIds]))
+    .orderBy(asc(schema.prices.date));
 
-  // Build a map: yahooSymbol → sorted price entries
+  // Build a map: yahooSymbol → date-ascending price entries (deduped by date)
   const pricesByYahoo = new Map<string, { date: string; priceAud: number }[]>();
   for (const asset of allAssets) {
     const siblings = yahooMap.get(asset.yahooSymbol) || [];
@@ -305,36 +363,55 @@ export async function getPortfolioValueHistory(profileId?: number): Promise<{ da
   }
   const priceDates = Array.from(allDatesSet).sort();
 
+  // Precompute, per asset, a cumulative (qty, cost) snapshot after each of its
+  // transactions. Since both the snapshots and priceDates are date-ascending, a
+  // forward-only pointer replaces re-folding every transaction for every date —
+  // turning O(dates × assets × txs) into O(dates × assets + Σtxs). The
+  // accumulation math is identical to the original fold.
+  interface AssetCalc {
+    asset: typeof allAssets[number];
+    snaps: { date: string; qty: number; cost: number }[];
+    prices: { date: string; priceAud: number }[];
+    txPtr: number;   // index of the last snapshot whose date <= current date (-1 = none yet)
+    pricePtr: number; // index of the last price whose date <= current date (-1 = none yet)
+  }
+  const calcs: AssetCalc[] = allAssets.map((asset) => {
+    const txs = txsByAsset.get(asset.id) || [];
+    const snaps: { date: string; qty: number; cost: number }[] = [];
+    let qty = 0;
+    let cost = 0;
+    for (const tx of txs) {
+      if (tx.action === 'BUY') {
+        cost += Math.abs(tx.totalAud);
+        qty += tx.adjustedQty;
+      } else if (tx.action === 'SELL') {
+        const avgCost = qty > 0 ? cost / qty : 0;
+        const soldQty = Math.abs(tx.adjustedQty);
+        cost -= avgCost * soldQty;
+        qty -= soldQty;
+      }
+      snaps.push({ date: tx.date, qty, cost });
+    }
+    return { asset, snaps, prices: pricesByYahoo.get(asset.yahooSymbol) || [], txPtr: -1, pricePtr: -1 };
+  });
+
   const history: { date: string; value: number; cost: number }[] = [];
 
   for (const date of priceDates) {
     let totalValue = 0;
     let totalCost = 0;
 
-    for (const asset of allAssets) {
-      const txs = allTransactions.filter(t => t.assetId === asset.id && t.date <= date);
-      let qty = 0;
-      let cost = 0;
-
-      for (const tx of txs) {
-        if (tx.action === 'BUY') {
-          cost += Math.abs(tx.totalAud);
-          qty += tx.adjustedQty;
-        } else if (tx.action === 'SELL') {
-          const avgCost = qty > 0 ? cost / qty : 0;
-          const soldQty = Math.abs(tx.adjustedQty);
-          cost -= avgCost * soldQty;
-          qty -= soldQty;
-        }
-      }
-
+    for (const c of calcs) {
+      // Advance the transaction pointer to the last snapshot on/before `date`.
+      while (c.txPtr + 1 < c.snaps.length && c.snaps[c.txPtr + 1].date <= date) c.txPtr++;
+      if (c.txPtr < 0) continue;
+      const { qty, cost } = c.snaps[c.txPtr];
       if (qty <= 0.0001) continue;
 
-      const prices = pricesByYahoo.get(asset.yahooSymbol) || [];
-      const price = prices.filter(p => p.date <= date).pop();
-
-      if (price) {
-        totalValue += qty * price.priceAud;
+      // Advance the price pointer to the latest price on/before `date`.
+      while (c.pricePtr + 1 < c.prices.length && c.prices[c.pricePtr + 1].date <= date) c.pricePtr++;
+      if (c.pricePtr >= 0) {
+        totalValue += qty * c.prices[c.pricePtr].priceAud;
       }
       totalCost += cost;
     }
@@ -350,28 +427,14 @@ export async function getPortfolioValueHistory(profileId?: number): Promise<{ da
     let totalValue = 0;
     let totalCost = 0;
 
-    for (const asset of allAssets) {
-      const txs = allTransactions.filter(t => t.assetId === asset.id);
-      let qty = 0;
-      let cost = 0;
-
-      for (const tx of txs) {
-        if (tx.action === 'BUY') {
-          cost += Math.abs(tx.totalAud);
-          qty += tx.adjustedQty;
-        } else if (tx.action === 'SELL') {
-          const avgCost = qty > 0 ? cost / qty : 0;
-          const soldQty = Math.abs(tx.adjustedQty);
-          cost -= avgCost * soldQty;
-          qty -= soldQty;
-        }
-      }
-
+    for (const c of calcs) {
+      // Final cumulative snapshot = fold of ALL of this asset's transactions.
+      const last = c.snaps[c.snaps.length - 1];
+      if (!last) continue;
+      const { qty, cost } = last;
       if (qty <= 0.0001) continue;
 
-      const prices = pricesByYahoo.get(asset.yahooSymbol) || [];
-      const price = prices[prices.length - 1];
-
+      const price = c.prices[c.prices.length - 1];
       if (price) {
         totalValue += qty * price.priceAud;
       }

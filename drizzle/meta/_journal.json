@@ -71,6 +71,13 @@
       "when": 1784634490737,
       "tag": "0009_add_transactions_source",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784762245483,
+      "tag": "0010_lowly_reaper",
+      "breakpoints": true
     }
   ]
 }
