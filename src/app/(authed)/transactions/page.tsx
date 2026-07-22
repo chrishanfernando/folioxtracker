@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { Plus, Search, ArrowDown, ArrowUp, Upload } from 'lucide-react';
 import { formatDate } from '@/lib/format';
 import { useProfile } from '@/components/profile-context';
+import { LoadError } from '@/components/load-error';
+import { PageSkeleton } from '@/components/page-skeleton';
 
 interface Transaction {
   id: number;
@@ -27,16 +29,26 @@ export default function TransactionsPage() {
   const { profileFetch, activeProfileId } = useProfile();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    profileFetch('/api/transactions')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setTransactions(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
-  }, [activeProfileId]);
+    setLoadError(false);
+    try {
+      const res = await profileFetch('/api/transactions');
+      if (!res.ok) throw new Error(`transactions fetch failed: ${res.status}`);
+      const data = await res.json();
+      setTransactions(Array.isArray(data) ? data : []);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [profileFetch]);
+
+  useEffect(() => { fetchData(); }, [activeProfileId, fetchData]);
 
   const filtered = transactions
     .filter(t =>
@@ -49,7 +61,16 @@ export default function TransactionsPage() {
       return sortDir === 'asc' ? diff : -diff;
     });
 
-  if (loading) return <AppShell><p className="text-muted-foreground">Loading...</p></AppShell>;
+  if (loading) return <AppShell><PageSkeleton variant="table" /></AppShell>;
+
+  if (loadError) {
+    return (
+      <AppShell>
+        <h1 className="text-2xl font-bold mb-6">Transactions</h1>
+        <LoadError onRetry={fetchData} />
+      </AppShell>
+    );
+  }
 
   if (transactions.length === 0) {
     return (
@@ -98,7 +119,7 @@ export default function TransactionsPage() {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm tabular-nums">
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th className="text-left p-3">

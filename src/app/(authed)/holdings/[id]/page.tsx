@@ -410,7 +410,7 @@ export default function AssetDetailPage() {
         <CardHeader><CardTitle>Transactions</CardTitle></CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm tabular-nums">
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th

@@ -14,6 +14,7 @@ import { ZoomableChart } from '@/components/zoomable-chart';
 import { AnimatedNumber } from '@/components/animated-number';
 import { useProfile } from '@/components/profile-context';
 import { useChartColors } from '@/lib/theme-colors';
+import { PageSkeleton } from '@/components/page-skeleton';
 
 interface DashboardData {
   summary: {
@@ -170,7 +171,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [activeProfileId, fetchData, profileFetch]);
 
-  if (loading) return <AppShell><div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Loading...</p></div></AppShell>;
+  if (loading) return <AppShell><PageSkeleton variant="cards" cards={6} /></AppShell>;
 
   if (loadError && !data) {
     return (
@@ -462,7 +463,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm tabular-nums">
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th className="text-left py-2 pr-4">Asset</th>

@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useProfile } from '@/components/profile-context';
+import { LoadError } from '@/components/load-error';
+import { PageSkeleton } from '@/components/page-skeleton';
 import {
   ResponsiveContainer,
   BarChart,
@@ -49,29 +51,31 @@ export default function FeesPage() {
   const { profileFetch, activeProfileId } = useProfile();
   const [data, setData] = useState<FeesResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    profileFetch('/api/fees')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled) {
-          setData(d);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeProfileId, profileFetch]);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await profileFetch('/api/fees');
+      if (!res.ok) throw new Error(`fees fetch failed: ${res.status}`);
+      setData(await res.json());
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [profileFetch]);
 
-  if (loading) {
+  useEffect(() => { fetchData(); }, [activeProfileId, fetchData]);
+
+  if (loading) return <AppShell><PageSkeleton variant="cards" /></AppShell>;
+
+  if (loadError) {
     return (
       <AppShell>
-        <p className="text-muted-foreground">Loading...</p>
+        <h1 className="text-2xl font-bold mb-4">Fees &amp; cost transparency</h1>
+        <LoadError onRetry={fetchData} />
       </AppShell>
     );
   }

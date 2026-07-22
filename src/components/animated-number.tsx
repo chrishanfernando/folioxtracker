@@ -35,7 +35,7 @@ export function AnimatedNumber({ value, className }: AnimatedNumberProps) {
   return (
     <span
       className={cn(
-        'transition-colors duration-600',
+        'tabular-nums transition-colors duration-500',
         flash === 'up' && 'text-gain',
         flash === 'down' && 'text-loss',
         className,

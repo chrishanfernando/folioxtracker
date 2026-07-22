@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { useProfile } from '@/components/profile-context';
+import { LoadError } from '@/components/load-error';
+import { PageSkeleton } from '@/components/page-skeleton';
 import { GeneralAdviceBanner } from '@/components/general-advice-banner';
 
 interface CategoryAllocation {
@@ -39,6 +41,7 @@ export default function RebalancePage() {
   const { profileFetch, activeProfileId } = useProfile();
   const [drift, setDrift] = useState<CategoryAllocation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [investAmount, setInvestAmount] = useState('5000');
   const [recommendations, setRecommendations] = useState<BuyRec[]>([]);
   const [projectedAllocation, setProjectedAllocation] = useState<ProjectedAlloc[]>([]);
@@ -47,23 +50,30 @@ export default function RebalancePage() {
   const [targets, setTargets] = useState<{ category: string; targetPct: number; threshold: number }[]>([]);
   const [targetInputs, setTargetInputs] = useState<string[]>([]);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    profileFetch('/api/rebalance')
-      .then(r => r.ok ? r.json() : [])
-      .then((data) => {
-        const arr: CategoryAllocation[] = Array.isArray(data) ? data : [];
-        setDrift(arr);
-        const t = arr.map((d) => ({
-          category: d.category,
-          targetPct: d.targetPct,
-          threshold: d.threshold,
-        }));
-        setTargets(t);
-        setTargetInputs(t.map((d) => d.targetPct > 0 ? String(d.targetPct) : ''));
-      })
-      .finally(() => setLoading(false));
-  }, [activeProfileId]);
+    setLoadError(false);
+    try {
+      const res = await profileFetch('/api/rebalance');
+      if (!res.ok) throw new Error(`rebalance fetch failed: ${res.status}`);
+      const data = await res.json();
+      const arr: CategoryAllocation[] = Array.isArray(data) ? data : [];
+      setDrift(arr);
+      const t = arr.map((d) => ({
+        category: d.category,
+        targetPct: d.targetPct,
+        threshold: d.threshold,
+      }));
+      setTargets(t);
+      setTargetInputs(t.map((d) => d.targetPct > 0 ? String(d.targetPct) : ''));
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [profileFetch]);
+
+  useEffect(() => { fetchData(); }, [activeProfileId, fetchData]);
 
   async function saveTargets() {
     setSaving(true);
@@ -73,12 +83,15 @@ export default function RebalancePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targets }),
       });
+      if (!res.ok) throw new Error(`save failed: ${res.status}`);
       const data = await res.json();
       setDrift(data);
       setEditing(false);
       setRecommendations([]);
       setProjectedAllocation([]);
       toast.success('Targets saved');
+    } catch {
+      toast.error('Failed to save targets');
     } finally {
       setSaving(false);
     }
@@ -99,7 +112,16 @@ export default function RebalancePage() {
   const driftingCategories = drift.filter(d => d.needsRebalance);
   const hasTargetsSet = drift.some(d => d.targetPct > 0);
 
-  if (loading) return <AppShell><p className="text-muted-foreground">Loading...</p></AppShell>;
+  if (loading) return <AppShell><PageSkeleton variant="cards" /></AppShell>;
+
+  if (loadError) {
+    return (
+      <AppShell>
+        <h1 className="text-2xl font-bold mb-6">Rebalance</h1>
+        <LoadError onRetry={fetchData} />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

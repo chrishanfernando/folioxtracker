@@ -13,3 +13,18 @@ export function formatDate(date: string): string {
 export function plClass(n: number): string {
   return n >= 0 ? 'text-gain' : 'text-loss';
 }
+
+/** Whole-dollar AUD, no decimals: 12345.6 → "$12,346". */
+export function formatAud(n: number): string {
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+/** Signed one-decimal percentage: 3.2 → "3.2%". */
+export function formatPct(n: number, digits = 1): string {
+  return `${n.toFixed(digits)}%`;
+}
+
+/** Share/unit quantity: whole numbers stay whole, else up to `digits` places. */
+export function formatQty(n: number, digits = 3): string {
+  return n % 1 === 0 ? n.toString() : n.toFixed(digits);
+}

@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Archive, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/components/profile-context';
+import { LoadError } from '@/components/load-error';
+import { PageSkeleton } from '@/components/page-skeleton';
 
 interface Holding {
   assetId: number;
@@ -41,20 +43,37 @@ export default function HoldingsPage() {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [closed, setClosed] = useState<ClosedHolding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    profileFetch('/api/holdings')
-      .then(r => r.ok ? r.json() : { holdings: [], closed: [] })
-      .then(data => {
-        setHoldings(Array.isArray(data?.holdings) ? data.holdings : []);
-        setClosed(Array.isArray(data?.closed) ? data.closed : []);
-      })
-      .finally(() => setLoading(false));
-  }, [activeProfileId]);
+    setLoadError(false);
+    try {
+      const res = await profileFetch('/api/holdings');
+      if (!res.ok) throw new Error(`holdings fetch failed: ${res.status}`);
+      const data = await res.json();
+      setHoldings(Array.isArray(data?.holdings) ? data.holdings : []);
+      setClosed(Array.isArray(data?.closed) ? data.closed : []);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [profileFetch]);
 
-  if (loading) return <AppShell><p className="text-muted-foreground">Loading...</p></AppShell>;
+  useEffect(() => { fetchData(); }, [activeProfileId, fetchData]);
+
+  if (loading) return <AppShell><PageSkeleton variant="cards" /></AppShell>;
+
+  if (loadError) {
+    return (
+      <AppShell>
+        <h1 className="text-2xl font-bold mb-6">Holdings</h1>
+        <LoadError onRetry={fetchData} />
+      </AppShell>
+    );
+  }
 
   if (holdings.length === 0 && closed.length === 0) {
     return (
