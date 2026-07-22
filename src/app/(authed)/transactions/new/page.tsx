@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useProfile } from '@/components/profile-context';
 import { Plus, Search } from 'lucide-react';
@@ -25,6 +26,7 @@ export default function NewTransactionPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [assetError, setAssetError] = useState(false);
   
   const [form, setForm] = useState({
     assetId: '',
@@ -63,6 +65,11 @@ export default function NewTransactionPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
+    setAssetError(false);
+    if (!isNewAsset && !form.assetId) {
+      setAssetError(true);
+      return;
+    }
     setSubmitting(true);
     try {
       let finalAssetId = parseInt(form.assetId);
@@ -202,17 +209,23 @@ export default function NewTransactionPage() {
                 </div>
               ) : (
                 <div>
-                  <select
-                    className="w-full bg-background border rounded-md p-2 text-sm"
+                  <Label htmlFor="asset-select" className="sr-only">Asset</Label>
+                  <Select
                     value={form.assetId}
-                    onChange={(e) => setForm({ ...form, assetId: e.target.value })}
-                    required={!isNewAsset}
+                    onValueChange={(v) => { setForm({ ...form, assetId: v }); setAssetError(false); }}
                   >
-                    <option value="">Select asset...</option>
-                    {assets.map(a => (
-                      <option key={a.id} value={a.id}>{a.displayTicker} - {a.name}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="asset-select" className="w-full" aria-invalid={assetError} aria-describedby={assetError ? 'asset-error' : undefined}>
+                      <SelectValue placeholder="Select asset..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {assets.map(a => (
+                        <SelectItem key={a.id} value={String(a.id)}>{a.displayTicker} - {a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {assetError && (
+                    <p id="asset-error" className="text-xs text-destructive mt-1.5">Please select an asset, or add a new one.</p>
+                  )}
                   {assets.length === 0 && (
                     <p className="text-xs text-muted-foreground mt-2 italic">
                       No assets found. Click &quot;Add new asset&quot; above to create one.
@@ -226,29 +239,30 @@ export default function NewTransactionPage() {
               <Label className="text-base font-semibold">Transaction Details</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Date</Label>
-                  <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+                  <Label htmlFor="tx-date">Date</Label>
+                  <Input id="tx-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
                 </div>
                 <div>
-                  <Label>Action</Label>
-                  <select
-                    className="w-full mt-1 bg-background border rounded-md p-2 text-sm"
-                    value={form.action}
-                    onChange={(e) => setForm({ ...form, action: e.target.value })}
-                  >
-                    <option value="BUY">BUY</option>
-                    <option value="SELL">SELL</option>
-                  </select>
+                  <Label htmlFor="action-select">Action</Label>
+                  <Select value={form.action} onValueChange={(v) => setForm({ ...form, action: v })}>
+                    <SelectTrigger id="action-select" className="w-full mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BUY">BUY</SelectItem>
+                      <SelectItem value="SELL">SELL</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Quantity</Label>
-                  <Input type="number" step="any" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
+                  <Label htmlFor="tx-qty">Quantity</Label>
+                  <Input id="tx-qty" type="number" step="any" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
                 </div>
                 <div>
-                  <Label>Unit Price (AUD)</Label>
-                  <Input type="number" step="any" value={form.unitPriceAud} onChange={(e) => setForm({ ...form, unitPriceAud: e.target.value })} required />
+                  <Label htmlFor="tx-price">Unit Price (AUD)</Label>
+                  <Input id="tx-price" type="number" step="any" value={form.unitPriceAud} onChange={(e) => setForm({ ...form, unitPriceAud: e.target.value })} required />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

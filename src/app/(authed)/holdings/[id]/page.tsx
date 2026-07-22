@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ZoomableChart } from '@/components/zoomable-chart';
 import { TimeFrameFilter, filterByTimeFrame, type TimeFrame } from '@/components/time-frame-filter';
 import { toast } from 'sonner';
@@ -15,6 +16,7 @@ import { Pencil, Trash2, Check, X, MessageSquare } from 'lucide-react';
 import { formatDate } from '@/lib/format';
 import { useProfile } from '@/components/profile-context';
 import { useChartColors } from '@/lib/theme-colors';
+import { PageSkeleton } from '@/components/page-skeleton';
 
 interface Transaction {
   id: number;
@@ -60,6 +62,7 @@ export default function AssetDetailPage() {
   const [editState, setEditState] = useState<EditState>({ date: '', action: '', quantity: '', unitPriceAud: '', source: '' });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [commentEditId, setCommentEditId] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
   const [editingMer, setEditingMer] = useState(false);
@@ -236,8 +239,22 @@ export default function AssetDetailPage() {
     }
   }
 
-  if (loading) return <AppShell><p className="text-muted-foreground">Loading...</p></AppShell>;
-  if (!data) return <AppShell><p>Asset not found</p></AppShell>;
+  if (loading) return <AppShell><PageSkeleton variant="cards" /></AppShell>;
+  if (!data) {
+    return (
+      <AppShell>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-lg font-semibold mb-2">Asset not found</p>
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+              This holding doesn&apos;t exist, or it isn&apos;t part of the active profile.
+            </p>
+            <Button variant="outline" onClick={() => router.push('/holdings')}>Back to holdings</Button>
+          </CardContent>
+        </Card>
+      </AppShell>
+    );
+  }
 
   const { asset, holding, priceHistory, transactions } = data;
 
@@ -556,9 +573,7 @@ export default function AssetDetailPage() {
                                   className="h-7 w-7 text-destructive hover:text-destructive"
                                   aria-label="Delete transaction"
                                   disabled={deletingId === tx.id}
-                                  onClick={() => {
-                                    if (confirm('Delete this transaction?')) deleteTx(tx.id);
-                                  }}
+                                  onClick={() => setPendingDeleteId(tx.id)}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -597,6 +612,31 @@ export default function AssetDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={pendingDeleteId !== null} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete transaction?</DialogTitle>
+            <DialogDescription>
+              This permanently removes the transaction and recalculates your holdings. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deletingId !== null}
+              onClick={() => {
+                const id = pendingDeleteId;
+                setPendingDeleteId(null);
+                if (id !== null) deleteTx(id);
+              }}
+            >
+              {deletingId !== null ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
