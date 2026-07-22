@@ -29,7 +29,7 @@ interface Transaction {
 }
 
 interface AssetDetail {
-  asset: { id: number; symbol: string; name: string; displayTicker: string; category: string; platform: string; merBps: number | null };
+  asset: { id: number; symbol: string; name: string; displayTicker: string; category: string; platform: string; merBps: number | null; yahooSymbol: string };
   transactions: Transaction[];
   priceHistory: Array<{ date: string; priceAud: number }>;
   holding: { quantity: number; avgCost: number; totalCost: number; currentPrice: number; marketValue: number; profitLoss: number; profitLossPct: number };
@@ -64,6 +64,8 @@ export default function AssetDetailPage() {
   const [commentText, setCommentText] = useState('');
   const [editingMer, setEditingMer] = useState(false);
   const [merText, setMerText] = useState('');
+  const [editingSymbol, setEditingSymbol] = useState(false);
+  const [symbolText, setSymbolText] = useState('');
 
   async function fetchData() {
     const r = await profileFetch(`/api/holdings/${params.id}`);
@@ -165,6 +167,33 @@ export default function AssetDetailPage() {
     }
   }
 
+  async function saveSymbol() {
+    if (!data) return;
+    const trimmed = symbolText.trim();
+    if (trimmed === '') {
+      toast.error('Price symbol cannot be empty');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/assets/${data.asset.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yahooSymbol: trimmed }),
+      });
+      if (res.ok) {
+        toast.success('Price symbol updated — refreshing price…');
+        setEditingSymbol(false);
+        // Pull a fresh quote for the corrected symbol, then reload the holding.
+        await profileFetch('/api/prices/fetch?force=true', { method: 'POST' }).catch(() => {});
+        await fetchData();
+      } else {
+        toast.error('Failed to update price symbol');
+      }
+    } catch {
+      toast.error('Failed to update price symbol');
+    }
+  }
+
   async function saveComment(txId: number) {
     try {
       const res = await fetch(`/api/transactions/${txId}`, {
@@ -244,6 +273,29 @@ export default function AssetDetailPage() {
               >
                 <Badge variant="outline" className="cursor-pointer hover:bg-accent">
                   MER {asset.merBps == null ? 'unknown' : `${(asset.merBps / 100).toFixed(2)}%`}
+                </Badge>
+              </button>
+            )}
+            {editingSymbol ? (
+              <span className="flex items-center gap-1">
+                <Input
+                  type="text"
+                  value={symbolText}
+                  onChange={e => setSymbolText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveSymbol(); if (e.key === 'Escape') setEditingSymbol(false); }}
+                  placeholder="Yahoo symbol e.g. BRK-B"
+                  className="h-7 w-44 text-xs"
+                  autoFocus
+                />
+                <Button size="sm" variant="ghost" className="h-7 px-2" onClick={saveSymbol}>Save</Button>
+              </span>
+            ) : (
+              <button
+                onClick={() => { setEditingSymbol(true); setSymbolText(asset.yahooSymbol); }}
+                title="Price lookup symbol (Yahoo Finance) — click to edit if the price looks wrong"
+              >
+                <Badge variant="outline" className="cursor-pointer hover:bg-accent">
+                  {asset.yahooSymbol}
                 </Badge>
               </button>
             )}

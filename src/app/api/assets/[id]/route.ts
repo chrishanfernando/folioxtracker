@@ -13,6 +13,9 @@ const assetPatchSchema = z.object({
   category: sanitizedString(64).optional(),
   // MER in basis points; null clears the value back to "unknown".
   merBps: z.number().int().min(0).max(500).nullable().optional(),
+  // Corrects a mis-resolved price ticker (e.g. BRK.B -> BRK-B). Yahoo Finance
+  // format: hyphen for US share classes, `.AX` suffix for ASX, etc.
+  yahooSymbol: sanitizedString(32).optional(),
 }).strict();
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,6 +34,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body.platform !== undefined) updates.platform = body.platform;
     if (body.category !== undefined) updates.category = body.category;
     if (body.merBps !== undefined) updates.merBps = body.merBps;
+    if (body.yahooSymbol !== undefined) updates.yahooSymbol = body.yahooSymbol;
 
     if (Object.keys(updates).length === 0) {
       throw new ValidationError([{ path: '(root)', message: 'Nothing to update' }]);
