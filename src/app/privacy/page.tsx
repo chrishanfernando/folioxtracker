@@ -78,6 +78,14 @@ export default function PrivacyPage() {
           email address and the email content.
         </li>
         <li>
+          <strong>Sentry</strong> — error monitoring. When the app
+          encounters a technical error, Sentry receives a diagnostic report
+          (error type, stack trace, page URL, browser). We configure it to
+          <strong> exclude</strong> your portfolio data and personal
+          information — it does not receive your holdings, transactions, or
+          email content.
+        </li>
+        <li>
           <strong>Google</strong> — authenticates you when you choose
           &quot;Continue with Google.&quot; Subject to Google&apos;s
           privacy policy.

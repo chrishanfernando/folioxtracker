@@ -122,13 +122,21 @@ fees & cost transparency (PR #48).
 
 ## 7. Security & dependency watch
 
-- [ ] **Separate Preview environment from Production** — CONFIRMED via `vercel env ls`
-      (2026-07-22): every env var is a single value shared across `Production, Preview`,
-      including `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` (previews read/write the real prod
-      DB), plus `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`. Fix: create
-      a dedicated Turso DB and set Preview-only values for at least the Turso pair (ideally
-      also a Preview `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL`). Then turn on Preview
-      Deployment Protection (see `docs/deployment.md`).
+- [x] **Separate Preview database from Production** — DONE (2026-07-22). Previews were
+      sharing the prod Turso DB via a single `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`
+      spanning `Production, Preview`. Created a dedicated `folioxtracker-preview` Turso DB
+      (same Tokyo group, empty; schema applied via `drizzle-kit migrate`) and split the two
+      vars into Production-only and Preview-only values in Vercel. Prod token was rotated in
+      the process (the old one still works in Turso). Sessions are now isolated too, since
+      they live in the DB.
+- [x] **Preview Deployment Protection** — DONE (already active; verified 2026-07-22).
+      Vercel Authentication is on in "Standard Protection" mode (`ssoProtection:
+      all_except_custom_domains`): all `*.vercel.app` preview URLs redirect to Vercel SSO,
+      while the `folioxtracker.com` custom domain stays public. On the Hobby plan this is a
+      single toggle with no per-environment options (those are Pro/Enterprise).
+- [ ] **Consider Preview-only `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL`** — still shared
+      with Production (along with `BETTER_AUTH_SECRET`). Lower priority now that the DB (and
+      thus sessions) are isolated; revisit if preview auth flows misbehave.
 - [ ] **Full CSP rollout** — `next.config.ts` currently ships only
       `frame-ancestors 'none'`. Add a real `Content-Security-Policy`
       (script-src/style-src etc.) in Report-Only first, then enforce.

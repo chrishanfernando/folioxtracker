@@ -1,8 +1,10 @@
-# Portfolio Tracker
+# FolioX Tracker
 
-Self-hosted personal investment portfolio tracker. Records trades across crypto and equity platforms, normalises everything to AUD, fetches daily prices from Yahoo Finance, and shows holdings, charts, and rebalance recommendations against category targets.
+Multi-user investment portfolio tracker for Australian DIY investors. Records trades across crypto and equity platforms, normalises everything to AUD, fetches daily prices from Yahoo Finance, and shows holdings, charts, and rebalance recommendations against category targets.
 
-Single-user, password-protected, multi-profile. Runs on Vercel or on a Raspberry Pi.
+Runs as a hosted service at **[folioxtracker.com](https://folioxtracker.com)** (deployed on Vercel). The code is also open, so you can self-host it — on your own Vercel project or a Raspberry Pi — if you'd rather run your own instance.
+
+Multi-user with email/password (verified) and Google sign-in; each account can keep multiple named portfolios (profiles).
 
 ## Features
 
@@ -19,19 +21,24 @@ Single-user, password-protected, multi-profile. Runs on Vercel or on a Raspberry
 
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui · Drizzle ORM · libSQL/Turso · `yahoo-finance2` · `imapflow` + `mailparser` · Resend · `recharts`.
 
-## Getting started
+## Running it yourself
+
+The hosted app lives at [folioxtracker.com](https://folioxtracker.com). To run a local
+copy for development or self-hosting:
 
 ```bash
 git clone git@github.com:chrishanfernando/folioxtracker.git
 cd folioxtracker
 npm install
 cp .env.example .env.local
-# edit .env.local — at minimum set JWT_SECRET and CRON_SECRET
+# edit .env.local — at minimum set BETTER_AUTH_SECRET, BETTER_AUTH_URL, and CRON_SECRET
 npx drizzle-kit push          # create the SQLite schema in local.db
 npm run dev
 ```
 
-Open http://localhost:3000 — you'll be redirected to `/login`. The first password you submit becomes the password for the app.
+Open http://localhost:3000 — you'll be redirected to `/login`. Create an account with
+email/password (or Google); email/password sign-ups require verifying the address before
+you can sign in. Each account starts with one portfolio profile and can add more.
 
 ## Environment
 
@@ -41,11 +48,12 @@ Variables are documented in [`.env.example`](./.env.example).
 | --- | --- | --- |
 | `TURSO_DATABASE_URL` | yes | `file:local.db` for local; libSQL URL for Turso |
 | `TURSO_AUTH_TOKEN` | only for remote Turso | leave blank locally |
-| `JWT_SECRET` | yes in prod | sign session cookies; `openssl rand -hex 32` |
-| `CRON_SECRET` | yes if cron is exposed | shared secret for `/api/cron/*` |
-| `RESEND_API_KEY` | optional | enables email notifications |
+| `BETTER_AUTH_SECRET` | yes in prod | signs sessions; `openssl rand -hex 32`. (`JWT_SECRET` is accepted as a legacy fallback.) |
+| `BETTER_AUTH_URL` | yes in prod | canonical app origin, e.g. `https://folioxtracker.com`; a wrong value breaks logout |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional | enables Google sign-in |
+| `CRON_SECRET` | yes if cron is exposed | bearer secret for `/api/cron/*` |
+| `RESEND_API_KEY` | optional | enables email (verification + notifications) |
 | `IMAP_HOST` / `IMAP_PORT` / `IMAP_USER` / `IMAP_PASSWORD` | optional | enables `/api/cron/email` CMC auto-import |
-| `FORCE_HTTPS` | optional | set to `true` to mark session cookies `Secure` |
 | `ADMIN_EMAILS` | optional | comma-separated emails allowed to view `/admin/metrics`; empty = nobody |
 
 ## Scripts
@@ -90,21 +98,32 @@ the full taxonomy and the decision each metric is meant to inform.
 
 ## Cron
 
-Trigger from any external scheduler. Either query string or bearer header works.
+Trigger from any external scheduler. Authentication is **header-only** — the secret goes in
+an `Authorization: Bearer` header (query-string secrets were removed because they leak into
+access logs and proxies).
 
 ```
-curl -fsS "https://<host>/api/cron/prices?secret=$CRON_SECRET"
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://<host>/api/cron/prices"
 curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://<host>/api/cron/rebalance"
-curl -fsS "https://<host>/api/cron/email?secret=$CRON_SECRET"
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://<host>/api/cron/email"
 ```
 
 Suggested cadence: prices daily after market close, rebalance weekly, email every 15 min.
+On the hosted deployment these run via Vercel Cron (`vercel.json`), which sends the bearer
+header automatically.
 
 ## Deployment
 
-### Vercel
+### Vercel (how the hosted app runs)
 
-`vercel.json` is included. Set the env vars in the Vercel project; point `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` at a Turso DB. Configure Vercel Cron entries against the `/api/cron/*` endpoints with the `?secret=$CRON_SECRET` query.
+The live site is a Vercel project connected to this repo: **merging to `main` builds and
+promotes to production automatically**, and each PR gets its own preview deployment. See
+[`docs/deployment.md`](./docs/deployment.md) for the deploy/preview details.
+
+To run your own Vercel instance: set the env vars in the project and point
+`TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` at a Turso DB. Cron is defined in `vercel.json`
+(`/api/cron/prices`, `/api/cron/rebalance`); Vercel sends the `Authorization: Bearer
+$CRON_SECRET` header automatically, so no query-string secret is needed.
 
 ### Raspberry Pi
 
@@ -134,8 +153,10 @@ Trivial fixes (typos, dependency bumps that don't change behaviour) skip the cha
 
 ## Repository
 
-Private during early development. The intent is to make it public once the spec coverage and the importer set are stable.
+Public. The hosted product is live at [folioxtracker.com](https://folioxtracker.com);
+the source is open for reference and self-hosting.
 
 ## Licence
 
-No licence file yet — all rights reserved while the repo is private.
+No licence file yet — all rights reserved. If you'd like to reuse the code, open an issue
+to ask.
