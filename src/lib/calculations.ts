@@ -33,6 +33,12 @@ export interface PortfolioSummary {
   benchmarkSymbol?: string;
 }
 
+export interface BenchmarkResult {
+  history: { date: string; value: number }[];
+  costBasis: number;
+  symbol: string;
+}
+
 export interface ClosedHolding {
   assetId: number;
   symbol: string;
@@ -248,7 +254,12 @@ export async function calculateClosedHoldings(profileId?: number): Promise<Close
   return closed;
 }
 
-export async function calculatePortfolioSummary(profileId?: number): Promise<PortfolioSummary> {
+export async function calculatePortfolioSummary(
+  profileId?: number,
+  // Callers that already need the benchmark (the dashboard) can pass it in so it
+  // isn't computed a second time here. Omit it and it's fetched as before.
+  injectedBenchmark?: BenchmarkResult,
+): Promise<PortfolioSummary> {
   const holdings = await calculateHoldings(profileId);
 
   const totalValue = holdings.reduce((sum, h) => sum + h.marketValueAud, 0);
@@ -283,9 +294,9 @@ export async function calculatePortfolioSummary(profileId?: number): Promise<Por
   let alpha: number | undefined;
   let benchmarkSymbol: string | undefined;
   if (profileId) {
-    const profileRow = await db.select().from(schema.profiles).where(eq(schema.profiles.id, profileId)).limit(1);
-    benchmarkSymbol = profileRow[0]?.benchmarkSymbol || 'VAS.AX';
-    const { history: benchmarkHistory, costBasis: benchmarkCost } = await getBenchmarkValueHistory(profileId);
+    const benchmark = injectedBenchmark ?? await getBenchmarkValueHistory(profileId);
+    benchmarkSymbol = benchmark.symbol;
+    const { history: benchmarkHistory, costBasis: benchmarkCost } = benchmark;
     if (benchmarkHistory.length > 0 && benchmarkCost > 0) {
       const benchmarkFinalValue = benchmarkHistory[benchmarkHistory.length - 1].value;
       benchmarkReturnPct = ((benchmarkFinalValue - benchmarkCost) / benchmarkCost) * 100;
@@ -449,14 +460,13 @@ export async function getPortfolioValueHistory(profileId?: number): Promise<{ da
   return history;
 }
 
-export async function getBenchmarkValueHistory(profileId: number): Promise<{
-  history: { date: string; value: number }[];
-  costBasis: number;
-}> {
-  const empty = { history: [], costBasis: 0 };
+export async function getBenchmarkValueHistory(profileId: number): Promise<BenchmarkResult> {
   const profileResult = await db.select().from(schema.profiles).where(eq(schema.profiles.id, profileId)).limit(1);
+  // Symbol falls back to VAS.AX even when the profile row is missing, matching
+  // the summary's prior fallback so an injected result stays behaviour-identical.
+  const benchmarkSymbol = profileResult[0]?.benchmarkSymbol || 'VAS.AX';
+  const empty: BenchmarkResult = { history: [], costBasis: 0, symbol: benchmarkSymbol };
   if (profileResult.length === 0) return empty;
-  const benchmarkSymbol = profileResult[0].benchmarkSymbol || 'VAS.AX';
 
   // Find or create benchmark asset to ensure we have prices
   const benchmarkAssetId = await ensureBenchmarkAssetExists(benchmarkSymbol);
@@ -498,7 +508,7 @@ export async function getBenchmarkValueHistory(profileId: number): Promise<{
   let shadowUnits = 0;
 
   const firstApplied = [...unitChangesByDate.keys()].sort()[0];
-  if (!firstApplied) return { history: [], costBasis };
+  if (!firstApplied) return { history: [], costBasis, symbol: benchmarkSymbol };
   const filteredPrices = prices.filter(p => p.date >= firstApplied);
 
   for (const price of filteredPrices) {
@@ -514,5 +524,5 @@ export async function getBenchmarkValueHistory(profileId: number): Promise<{
     history.push({ date: today, value: shadowUnits * filteredPrices[filteredPrices.length - 1].priceAud });
   }
 
-  return { history, costBasis };
+  return { history, costBasis, symbol: benchmarkSymbol };
 }
