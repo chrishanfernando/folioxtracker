@@ -129,9 +129,11 @@ fees & cost transparency (PR #48).
       vars into Production-only and Preview-only values in Vercel. Prod token was rotated in
       the process (the old one still works in Turso). Sessions are now isolated too, since
       they live in the DB.
-- [ ] **Turn on Preview Deployment Protection** — previews are still publicly reachable by
-      URL. Enable Vercel Authentication for Preview (Project → Settings → Deployment
-      Protection). See `docs/deployment.md`.
+- [x] **Preview Deployment Protection** — DONE (already active; verified 2026-07-22).
+      Vercel Authentication is on in "Standard Protection" mode (`ssoProtection:
+      all_except_custom_domains`): all `*.vercel.app` preview URLs redirect to Vercel SSO,
+      while the `folioxtracker.com` custom domain stays public. On the Hobby plan this is a
+      single toggle with no per-environment options (those are Pro/Enterprise).
 - [ ] **Consider Preview-only `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL`** — still shared
       with Production (along with `BETTER_AUTH_SECRET`). Lower priority now that the DB (and
       thus sessions) are isolated; revisit if preview auth flows misbehave.
