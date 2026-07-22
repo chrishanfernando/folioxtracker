@@ -102,7 +102,7 @@ export default function ChartsPage() {
           <Plus className="h-4 w-4 mr-1" />
           {searching ? 'Loading...' : 'Add'}
         </Button>
-        {searchError && <p className="text-xs text-red-500 self-center">{searchError}</p>}
+        {searchError && <p className="text-xs text-loss self-center">{searchError}</p>}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -129,7 +129,7 @@ export default function ChartsPage() {
                     )}
                   </div>
                   <div className="text-right">
-                    <span className={`text-xs font-medium ${changePct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    <span className={`text-xs font-medium ${changePct >= 0 ? 'text-gain' : 'text-loss'}`}>
                       {changePct >= 0 ? '+' : ''}{changePct.toFixed(1)}%
                     </span>
                     {drawdownPct < -0.5 && (

@@ -111,8 +111,8 @@ export default function RebalancePage() {
       {driftingCategories.length > 0 && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            <p className="font-semibold text-red-500">Portfolio out of balance</p>
+            <AlertTriangle className="h-5 w-5 text-loss" />
+            <p className="font-semibold text-loss">Portfolio out of balance</p>
           </div>
           <p className="text-sm text-muted-foreground">
             {driftingCategories.length} {driftingCategories.length === 1 ? 'category has' : 'categories have'} drifted
@@ -124,8 +124,8 @@ export default function RebalancePage() {
       {hasTargetsSet && driftingCategories.length === 0 && (
         <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
-            <p className="font-semibold text-green-500">Portfolio is balanced</p>
+            <CheckCircle className="h-5 w-5 text-gain" />
+            <p className="font-semibold text-gain">Portfolio is balanced</p>
           </div>
           <p className="text-sm text-muted-foreground">All categories are within their drift thresholds.</p>
         </div>
@@ -196,7 +196,7 @@ export default function RebalancePage() {
                   <div className="col-span-3 text-right">
                     {d.targetPct > 0 ? (
                       <span className={`text-sm flex items-center justify-end gap-1 ${
-                        Math.abs(d.driftPct) > d.threshold ? 'text-red-500' : 'text-muted-foreground'
+                        Math.abs(d.driftPct) > d.threshold ? 'text-loss' : 'text-muted-foreground'
                       }`}>
                         {d.driftPct > 0 ? (
                           <TrendingUp className="h-3 w-3" />
@@ -235,7 +235,7 @@ export default function RebalancePage() {
               <div className="col-span-2 text-right">
                 {drift.reduce((s, d) => s + d.currentPct, 0).toFixed(1)}%
               </div>
-              <div className={`col-span-2 text-right ${editing && Math.abs(totalTarget - 100) > 0.1 ? 'text-red-500' : ''}`}>
+              <div className={`col-span-2 text-right ${editing && Math.abs(totalTarget - 100) > 0.1 ? 'text-loss' : ''}`}>
                 {totalTarget > 0 ? `${totalTarget.toFixed(1)}%` : '—'}
               </div>
               <div className="col-span-3" />
@@ -244,7 +244,7 @@ export default function RebalancePage() {
             {editing && (
               <div className="flex items-center justify-between pt-2">
                 {Math.abs(totalTarget - 100) > 0.1 && (
-                  <p className="text-sm text-red-500">Targets must sum to 100%</p>
+                  <p className="text-sm text-loss">Targets must sum to 100%</p>
                 )}
                 <Button
                   onClick={saveTargets}
@@ -302,7 +302,7 @@ export default function RebalancePage() {
                       <div key={r.category} className="border rounded-lg p-3">
                         <div className="flex justify-between mb-2">
                           <span className="font-medium">{r.category}</span>
-                          <span className="text-green-500 font-medium">
+                          <span className="text-gain font-medium">
                             ${categorySpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </span>
                         </div>
@@ -350,7 +350,7 @@ export default function RebalancePage() {
                       <div key={p.category} className="grid grid-cols-4 gap-2 text-sm">
                         <div className="font-medium">{p.category}</div>
                         <div className="text-right text-muted-foreground">{p.currentPct.toFixed(1)}%</div>
-                        <div className={`text-right ${improved ? 'text-green-500' : ''}`}>
+                        <div className={`text-right ${improved ? 'text-gain' : ''}`}>
                           {p.projectedPct.toFixed(1)}%
                         </div>
                         <div className="text-right">{p.targetPct > 0 ? `${p.targetPct.toFixed(1)}%` : '—'}</div>

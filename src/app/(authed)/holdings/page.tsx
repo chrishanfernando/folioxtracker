@@ -98,7 +98,7 @@ export default function HoldingsPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">${h.marketValueAud.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                    <p className={`text-sm ${h.profitLossAud >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    <p className={`text-sm ${h.profitLossAud >= 0 ? 'text-gain' : 'text-loss'}`}>
                       {h.profitLossAud >= 0 ? '+' : ''}${h.profitLossAud.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       ({h.profitLossPct >= 0 ? '+' : ''}{h.profitLossPct.toFixed(1)}%)
                     </p>
@@ -137,7 +137,7 @@ export default function HoldingsPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">Closed</p>
-                          <p className={`text-sm ${h.realisedPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          <p className={`text-sm ${h.realisedPL >= 0 ? 'text-gain' : 'text-loss'}`}>
                             {h.realisedPL >= 0 ? '+' : ''}${h.realisedPL.toLocaleString(undefined, { maximumFractionDigits: 0 })} realised
                           </p>
                           <p className="text-xs text-muted-foreground">

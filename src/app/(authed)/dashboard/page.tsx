@@ -238,9 +238,9 @@ export default function DashboardPage() {
           <Link href="/rebalance" className="block">
             <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 pr-12 hover:bg-red-500/15 transition-colors">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+                <AlertTriangle className="h-5 w-5 text-loss shrink-0" />
                 <div>
-                  <p className="font-semibold text-red-500 text-sm">Portfolio out of balance</p>
+                  <p className="font-semibold text-loss text-sm">Portfolio out of balance</p>
                   <p className="text-xs text-muted-foreground">
                     {driftCategories.join(', ')} {driftCategories.length === 1 ? 'has' : 'have'} drifted beyond threshold. Tap to rebalance.
                   </p>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
               sessionStorage.setItem('driftDismissed', '1');
             }}
             aria-label="Dismiss"
-            className="absolute top-2 right-2 p-1.5 rounded-md text-red-500/70 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+            className="absolute top-2 right-2 p-1.5 rounded-md text-loss/70 hover:text-loss hover:bg-red-500/10 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -291,12 +291,12 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-              {(s?.profitLoss || 0) >= 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+              {(s?.profitLoss || 0) >= 0 ? <TrendingUp className="h-4 w-4 text-gain" /> : <TrendingDown className="h-4 w-4 text-loss" />}
               P&L
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${(s?.profitLoss || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            <p className={`text-2xl font-bold ${(s?.profitLoss || 0) >= 0 ? 'text-gain' : 'text-loss'}`}>
               <AnimatedNumber value={`$${s?.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
             </p>
           </CardContent>
@@ -308,7 +308,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${(s?.returnPct || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            <p className={`text-2xl font-bold ${(s?.returnPct || 0) >= 0 ? 'text-gain' : 'text-loss'}`}>
               <AnimatedNumber value={`${s?.returnPct.toFixed(1)}%`} />
             </p>
           </CardContent>
@@ -316,12 +316,12 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-              {(s?.alpha || 0) >= 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+              {(s?.alpha || 0) >= 0 ? <TrendingUp className="h-4 w-4 text-gain" /> : <TrendingDown className="h-4 w-4 text-loss" />}
               Alpha
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${(s?.alpha || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            <p className={`text-2xl font-bold ${(s?.alpha || 0) >= 0 ? 'text-gain' : 'text-loss'}`}>
               <AnimatedNumber value={`${(s?.alpha || 0) > 0 ? '+' : ''}${s?.alpha?.toFixed(1) || '0.0'}%`} />
             </p>
             <p className="text-[10px] text-muted-foreground uppercase mt-1">Vs Benchmark{s?.benchmarkSymbol ? ` · ${s.benchmarkSymbol}` : ''}</p>
@@ -520,13 +520,13 @@ export default function DashboardPage() {
                       <td className="text-right py-2 pr-4">
                         <AnimatedNumber value={`$${h.marketValueAud.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
                       </td>
-                      <td className={`text-right py-2 pr-4 ${h.profitLossAud >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <td className={`text-right py-2 pr-4 ${h.profitLossAud >= 0 ? 'text-gain' : 'text-loss'}`}>
                         <AnimatedNumber value={`$${h.profitLossAud.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
                       </td>
-                      <td className={`text-right py-2 pr-4 ${h.profitLossPct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <td className={`text-right py-2 pr-4 ${h.profitLossPct >= 0 ? 'text-gain' : 'text-loss'}`}>
                         <AnimatedNumber value={`${h.profitLossPct.toFixed(1)}%`} />
                       </td>
-                      <td className={`text-right py-2 ${h.cagr >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <td className={`text-right py-2 ${h.cagr >= 0 ? 'text-gain' : 'text-loss'}`}>
                         <AnimatedNumber value={`${h.cagr.toFixed(1)}%`} />
                       </td>
                     </tr>

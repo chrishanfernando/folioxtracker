@@ -338,7 +338,7 @@ export default function AssetDetailPage() {
               <p className="text-sm text-muted-foreground">
                 Total: ${(holding.quantity * parseFloat(closePrice || '0')).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 {' · '}
-                P&L: <span className={(holding.quantity * parseFloat(closePrice || '0') - holding.totalCost) >= 0 ? 'text-green-500' : 'text-red-500'}>
+                P&L: <span className={(holding.quantity * parseFloat(closePrice || '0') - holding.totalCost) >= 0 ? 'text-gain' : 'text-loss'}>
                   ${(holding.quantity * parseFloat(closePrice || '0') - holding.totalCost).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </span>
               </p>
@@ -363,7 +363,7 @@ export default function AssetDetailPage() {
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">P&L</CardTitle></CardHeader>
           <CardContent>
-            <p className={`text-xl font-bold ${holding.profitLoss >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            <p className={`text-xl font-bold ${holding.profitLoss >= 0 ? 'text-gain' : 'text-loss'}`}>
               ${holding.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({holding.profitLossPct.toFixed(1)}%)
             </p>
           </CardContent>
@@ -504,7 +504,7 @@ export default function AssetDetailPage() {
                           <td className="text-right py-1">
                             <div className="flex gap-1 justify-end">
                               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveEdit(tx.id)} disabled={saving}>
-                                <Check className="h-3.5 w-3.5 text-green-500" />
+                                <Check className="h-3.5 w-3.5 text-gain" />
                               </Button>
                               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}>
                                 <X className="h-3.5 w-3.5" />
@@ -577,7 +577,7 @@ export default function AssetDetailPage() {
                                   autoFocus
                                 />
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveComment(tx.id)}>
-                                  <Check className="h-3.5 w-3.5 text-green-500" />
+                                  <Check className="h-3.5 w-3.5 text-gain" />
                                 </Button>
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setCommentEditId(null)}>
                                   <X className="h-3.5 w-3.5" />

@@ -105,7 +105,7 @@ export function MetricsDashboard({ data }: { data: MetricsOverview }) {
                   <XAxis dataKey="week" tick={{ fontSize: 10 }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="users" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="users" stroke="var(--primary)" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -133,7 +133,7 @@ export function MetricsDashboard({ data }: { data: MetricsOverview }) {
                 <Tooltip formatter={(v) => [`${v}%`, 'Adoption']} />
                 <Bar dataKey="pctOfActive" radius={[0, 4, 4, 0]}>
                   {data.featureAdoption.map((f, i) => (
-                    <Cell key={i} fill={f.pctOfActive >= 30 ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'} />
+                    <Cell key={i} fill={f.pctOfActive >= 30 ? 'var(--primary)' : 'var(--muted-foreground)'} />
                   ))}
                 </Bar>
               </BarChart>

@@ -45,7 +45,7 @@ function PreviewTable({ preview, onConfirm, onCancel, confirming }: {
   confirming: boolean;
 }) {
   const statusColors: Record<string, string> = {
-    new: 'bg-green-500/10 text-green-500 border-green-500/30',
+    new: 'bg-green-500/10 text-gain border-green-500/30',
     duplicate: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30',
     correction: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
   };
@@ -60,7 +60,7 @@ function PreviewTable({ preview, onConfirm, onCancel, confirming }: {
       )}
 
       <div className="flex gap-4 text-sm">
-        <span className="text-green-500 font-medium">{preview.summary.new} new</span>
+        <span className="text-gain font-medium">{preview.summary.new} new</span>
         {preview.summary.duplicates > 0 && <span className="text-yellow-500 font-medium">{preview.summary.duplicates} duplicates</span>}
         {preview.summary.corrections > 0 && <span className="text-blue-500 font-medium">{preview.summary.corrections} corrections</span>}
         {preview.newAssets.length > 0 && <span className="text-muted-foreground">New assets: {preview.newAssets.join(', ')}</span>}
@@ -86,7 +86,7 @@ function PreviewTable({ preview, onConfirm, onCancel, confirming }: {
                 <td className="px-3 py-1.5 text-muted-foreground">{formatDate(row.date)}</td>
                 <td className="px-3 py-1.5 font-medium">{row.ticker}</td>
                 <td className="px-3 py-1.5">
-                  <span className={row.action === 'BUY' ? 'text-green-500' : 'text-red-500'}>{row.action}</span>
+                  <span className={row.action === 'BUY' ? 'text-gain' : 'text-loss'}>{row.action}</span>
                 </td>
                 <td className="px-3 py-1.5 text-right">{row.quantity < 1 ? row.quantity.toFixed(8) : row.quantity}</td>
                 <td className="px-3 py-1.5 text-right">${row.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -252,8 +252,8 @@ export default function ImportPage() {
 
           {result && (
             <div className="bg-green-500/10 border border-green-500/20 rounded-md p-2 flex items-center gap-2 text-xs">
-              <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-              <span className="text-green-500 font-medium">Imported</span>
+              <CheckCircle className="h-4 w-4 text-gain shrink-0" />
+              <span className="text-gain font-medium">Imported</span>
               <span className="text-muted-foreground">
                 {result.transactions} tx
                 {(result.prices ?? 0) > 0 && ` · ${result.prices} prices`}
