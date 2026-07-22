@@ -85,11 +85,11 @@ export default function SignupPage() {
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
-              <p className="text-xs text-muted-foreground mt-1">At least 8 characters.</p>
+              <Input id="password" type="password" autoComplete="new-password" minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <p className="text-xs text-muted-foreground mt-1">At least 10 characters.</p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading || !name || !email || password.length < 8}>
+            <Button type="submit" className="w-full" disabled={loading || !name || !email || password.length < 10}>
               {loading ? 'Creating account…' : 'Create account'}
             </Button>
           </form>

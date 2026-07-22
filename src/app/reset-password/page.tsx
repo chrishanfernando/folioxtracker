@@ -48,16 +48,16 @@ function ResetForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle className="text-2xl">Set a new password</CardTitle>
-        <CardDescription>Choose a password of at least 8 characters.</CardDescription>
+        <CardDescription>Choose a password of at least 10 characters.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <Label htmlFor="password">New password</Label>
-            <Input id="password" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Input id="password" type="password" autoComplete="new-password" minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading || password.length < 8}>
+          <Button type="submit" className="w-full" disabled={loading || password.length < 10}>
             {loading ? 'Saving…' : 'Save password'}
           </Button>
         </form>
