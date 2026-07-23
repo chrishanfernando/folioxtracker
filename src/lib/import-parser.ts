@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { ASSET_MAP, INACTIVE_ASSETS, CMC_TICKER_MAP, SWYFTX_TICKER_MAP, IR_TICKER_MAP, resolveCmcTicker } from './ticker-map';
+import { CMC_TICKER_MAP, SWYFTX_TICKER_MAP, IR_TICKER_MAP, resolveCmcTicker } from './ticker-map';
 
 export interface ParsedTransaction {
   date: string;
