@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/db';
-import { and, eq } from 'drizzle-orm';
-import { requireUser } from '@/lib/auth-helpers';
+import { and, eq, inArray } from 'drizzle-orm';
+import { requireUser, requireProfileOwnership } from '@/lib/auth-helpers';
 import { ensureProfile } from '@/lib/profile';
 import { ensureBenchmarkAssetExists, fetchHistoricalPrices } from '@/lib/prices';
 import { positiveInt, sanitizedString } from '@/lib/validation/primitives';
@@ -87,5 +87,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result[0]);
   } catch (error) {
     return apiError(error, { route: '/api/profiles', method: 'POST' });
+  }
+}
+
+const profileDeleteSchema = z.object({ id: positiveInt }).strict();
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await requireUser();
+    if (user instanceof NextResponse) return user;
+
+    const { id } = await parseJsonBody(request, profileDeleteSchema);
+
+    // 404 (not 403) when the profile isn't the caller's, matching the codebase's
+    // non-leaking ownership pattern.
+    const owned = await requireProfileOwnership(id, user.id);
+    if (owned instanceof NextResponse) return owned;
+
+    // A user must always keep at least one profile — the app resolves an active
+    // profile on every request and would otherwise just lazily recreate one.
+    const remaining = await db.select({ id: schema.profiles.id })
+      .from(schema.profiles)
+      .where(eq(schema.profiles.userId, user.id));
+    if (remaining.length <= 1) {
+      return NextResponse.json({ error: "You can't delete your only profile." }, { status: 400 });
+    }
+
+    // Cascade the profile's data manually (same tables/order as the user-delete
+    // hook — the ALTER-TABLE-added FKs don't carry ON DELETE CASCADE). Wrapped in
+    // a transaction so a partial delete can't leave orphaned rows.
+    await db.transaction(async (tx) => {
+      const assetRows = await tx.select({ id: schema.assets.id })
+        .from(schema.assets)
+        .where(eq(schema.assets.profileId, id));
+      const assetIds = assetRows.map(a => a.id);
+      if (assetIds.length > 0) {
+        await tx.delete(schema.prices).where(inArray(schema.prices.assetId, assetIds));
+        await tx.delete(schema.transactions).where(inArray(schema.transactions.assetId, assetIds));
+        await tx.delete(schema.assets).where(inArray(schema.assets.id, assetIds));
+      }
+      await tx.delete(schema.categoryTargets).where(eq(schema.categoryTargets.profileId, id));
+      await tx.delete(schema.cmcAccountMappings).where(eq(schema.cmcAccountMappings.profileId, id));
+      await tx.delete(schema.profiles).where(eq(schema.profiles.id, id));
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return apiError(error, { route: '/api/profiles', method: 'DELETE' });
   }
 }
