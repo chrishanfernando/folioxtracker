@@ -169,9 +169,26 @@ export interface ParsedStakeTransaction {
   feeAud: number | null;
 }
 
-export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeTransaction[] {
+export interface UnknownStakeRow {
+  date: string;
+  stakeTicker: string;
+  action: 'BUY' | 'SELL';
+  quantity: number;
+  unitPriceLocal: number;
+  totalLocal: number;
+  currency: string;
+}
+
+export interface ParsedStakeResult {
+  transactions: ParsedStakeTransaction[];
+  /** Buy/sell rows whose ticker could not be resolved to a canonical symbol. */
+  unknown: UnknownStakeRow[];
+}
+
+export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeResult {
   const wb = XLSX.read(buffer, { type: 'array' });
   const transactions: ParsedStakeTransaction[] = [];
+  const unknown: UnknownStakeRow[] = [];
 
   // Process both Aus and Wall St sheets
   for (const sheetName of ['Aus Equities', 'Wall St Equities']) {
@@ -202,13 +219,22 @@ export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeTransaction[] {
 
       if (!units || !avgPrice || (side !== 'Buy' && side !== 'Sell')) continue;
 
+      const action = side === 'Buy' ? 'BUY' : 'SELL';
+
       const assetSymbol = resolveStakeTicker(stakeTicker);
       if (!assetSymbol) {
         console.warn(`Unknown Stake ticker: ${stakeTicker}`);
+        unknown.push({
+          date: tradeDate,
+          stakeTicker,
+          action,
+          quantity: units,
+          unitPriceLocal: avgPrice,
+          totalLocal: totalValue,
+          currency: isUS ? 'USD' : 'AUD',
+        });
         continue;
       }
-
-      const action = side === 'Buy' ? 'BUY' : 'SELL';
 
       if (isUS) {
         // Wall St: prices in USD, AUD/USD rate column is USD→AUD multiplier
@@ -246,7 +272,7 @@ export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeTransaction[] {
     }
   }
 
-  return transactions;
+  return { transactions, unknown };
 }
 
 export interface ParsedSwyftxTransaction {

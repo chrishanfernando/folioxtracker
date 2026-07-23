@@ -25,7 +25,24 @@ export interface AssetInfo {
 }
 
 // Active assets. Imports for symbols listed here mark the asset `is_active = true`.
-export const ASSET_MAP: Record<string, AssetInfo> = {};
+export const ASSET_MAP: Record<string, AssetInfo> = {
+  'ASX:IOO': {
+    symbol: 'ASX:IOO',
+    name: 'iShares Global 100 ETF',
+    displayTicker: 'IOO',
+    yahooSymbol: 'IOO.AX',
+    category: 'Intl Equities',
+    platform: 'Stake',
+  },
+  'OTCMKTS:TCEHY': {
+    symbol: 'OTCMKTS:TCEHY',
+    name: 'Tencent Holdings Ltd (ADR)',
+    displayTicker: 'TCEHY',
+    yahooSymbol: 'TCEHY',
+    category: 'Emerging Markets',
+    platform: 'Stake',
+  },
+};
 
 // Assets that previously appeared in your records but are now closed/delisted.
 // Imports for symbols listed here still resolve, but the asset is created with
@@ -35,7 +52,9 @@ export const INACTIVE_ASSETS: Record<string, AssetInfo> = {};
 // --- Stake ---------------------------------------------------------------
 // Stake uses ".ASX" suffixes for ASX tickers (auto-resolved below) and bare
 // US tickers that need explicit mapping to NASDAQ/NYSE/OTCMKTS.
-export const STAKE_US_TICKER_MAP: Record<string, string> = {};
+export const STAKE_US_TICKER_MAP: Record<string, string> = {
+  'TCEHY': 'OTCMKTS:TCEHY',
+};
 
 export function resolveStakeTicker(stakeTicker: string): string | null {
   if (stakeTicker.endsWith('.ASX')) {
