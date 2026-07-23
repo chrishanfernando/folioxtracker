@@ -12,11 +12,14 @@ export async function GET(request: NextRequest) {
     const profileId = await resolveProfileId(request, user.id);
     if (profileId instanceof NextResponse) return profileId;
 
-    const [summary, history, benchmark] = await Promise.all([
-      calculatePortfolioSummary(profileId),
-      getPortfolioValueHistory(profileId),
-      getBenchmarkValueHistory(profileId),
-    ]);
+    // The benchmark is needed twice (the summary uses it for alpha; the merged
+    // history uses its series), so compute it once and inject it into the
+    // summary. The independent value-history runs concurrently, so overall wall
+    // time is unchanged — we just drop the duplicate benchmark computation.
+    const historyPromise = getPortfolioValueHistory(profileId);
+    const benchmark = await getBenchmarkValueHistory(profileId);
+    const summary = await calculatePortfolioSummary(profileId, benchmark);
+    const history = await historyPromise;
 
     // Merge benchmark history into main history
     const mergedHistory = history.map(h => {
