@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 
 async function createDefaultProfile(userId: string): Promise<number> {
@@ -8,12 +8,26 @@ async function createDefaultProfile(userId: string): Promise<number> {
     .where(eq(schema.user.id, userId))
     .limit(1);
   const name = u[0]?.name?.trim() || 'My Portfolio';
-  const created = await db.insert(schema.profiles).values({
-    name,
-    createdAt: new Date().toISOString().split('T')[0],
-    userId,
-  }).returning({ id: schema.profiles.id });
-  return created[0].id;
+  const createdAt = new Date().toISOString().split('T')[0];
+
+  // Insert a default profile ONLY if the user has none, as a single atomic
+  // statement. On a brand-new account the client fires several requests in
+  // parallel (dashboard, holdings, profiles, …) and each used to run a
+  // check-then-insert with no guard — so several concurrently saw zero profiles
+  // and each created a default, producing duplicate "<name>" profiles. Writes
+  // are serialised, so the NOT EXISTS makes only the first insert win.
+  await db.run(sql`
+    INSERT INTO profiles (name, created_at, user_id)
+    SELECT ${name}, ${createdAt}, ${userId}
+    WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE user_id = ${userId})
+  `);
+
+  const first = await db.select({ id: schema.profiles.id })
+    .from(schema.profiles)
+    .where(eq(schema.profiles.userId, userId))
+    .orderBy(asc(schema.profiles.id))
+    .limit(1);
+  return first[0].id;
 }
 
 export async function ensureProfile(userId: string): Promise<number> {

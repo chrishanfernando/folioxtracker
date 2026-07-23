@@ -50,7 +50,9 @@ function findRun(rows: CronStatusRow[], jobName: string): string | null {
 }
 
 export default function SettingsPage() {
-  const { activeProfileId, profileFetch } = useProfile();
+  const { activeProfileId, profileFetch, profiles: allProfiles, setActiveProfileId, refreshProfiles } = useProfile();
+  const [profileToDelete, setProfileToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [deletingProfile, setDeletingProfile] = useState(false);
   const [email, setEmail] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
@@ -126,6 +128,35 @@ export default function SettingsPage() {
     setProfiles(data.profiles || []);
     if (!newProfileId && data.profiles?.length > 0) {
       setNewProfileId(String(data.profiles[0].id));
+    }
+  }
+
+  async function confirmDeleteProfile() {
+    if (!profileToDelete || deletingProfile) return;
+    setDeletingProfile(true);
+    try {
+      const res = await fetch('/api/profiles', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: profileToDelete.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to delete profile');
+      }
+      // If the active profile was deleted, switch to another before refreshing
+      // so the next request carries a valid x-profile-id.
+      if (profileToDelete.id === activeProfileId) {
+        const next = allProfiles.find(p => p.id !== profileToDelete.id);
+        if (next) setActiveProfileId(next.id);
+      }
+      await refreshProfiles();
+      toast.success(`Profile "${profileToDelete.name}" deleted`);
+      setProfileToDelete(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete profile');
+    } finally {
+      setDeletingProfile(false);
     }
   }
 
@@ -339,6 +370,40 @@ export default function SettingsPage() {
             <CardTitle>Account</CardTitle>
             <CardDescription>Signed in as {accountEmail || '…'}.</CardDescription>
           </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Profiles</CardTitle>
+            <CardDescription>
+              Each profile is a separate portfolio. Switch between them from the sidebar; rename or create new ones there too.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y">
+              {allProfiles.map(p => (
+                <li key={p.id} className="flex items-center justify-between py-2 gap-3">
+                  <span className="text-sm truncate">
+                    {p.name}
+                    {p.id === activeProfileId && <span className="ml-2 text-xs text-muted-foreground">(active)</span>}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive shrink-0"
+                    disabled={allProfiles.length <= 1}
+                    title={allProfiles.length <= 1 ? "You can't delete your only profile" : undefined}
+                    onClick={() => setProfileToDelete({ id: p.id, name: p.name })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {allProfiles.length <= 1 && (
+              <p className="text-xs text-muted-foreground mt-2">You have one profile. Create another from the sidebar before deleting this one.</p>
+            )}
+          </CardContent>
         </Card>
 
         <Card>
@@ -617,6 +682,24 @@ export default function SettingsPage() {
             <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>Cancel</Button>
             <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
               {deleting ? 'Deleting…' : 'Delete account'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={profileToDelete !== null} onOpenChange={(open) => { if (!open) setProfileToDelete(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete profile?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes <span className="font-medium text-foreground">{profileToDelete?.name}</span> and
+              all of its holdings, transactions, targets, and account mappings. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProfileToDelete(null)} disabled={deletingProfile}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDeleteProfile} disabled={deletingProfile}>
+              {deletingProfile ? 'Deleting…' : 'Delete profile'}
             </Button>
           </DialogFooter>
         </DialogContent>
