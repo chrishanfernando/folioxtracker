@@ -55,7 +55,10 @@ export async function POST(request: NextRequest) {
             assetIdMap.set(symbol, result[0].id);
           } else {
             const isAsx = symbol.startsWith('ASX:');
-            const yahooSymbol = isAsx ? `${ticker}.AX` : ticker;
+            // Yahoo denotes US share classes with a hyphen (BRK.B -> BRK-B, BF.B ->
+            // BF-B); a dotted symbol yields no quote, so the holding would show $0.
+            // Mirrors the same derivation in cmc-import.ts (the email-PDF path).
+            const yahooSymbol = isAsx ? `${ticker}.AX` : ticker.replace(/\./g, '-');
             const category = isAsx ? 'Australia' : 'USA';
             const result = await db.insert(schema.assets).values({
               symbol, name: ticker, displayTicker: ticker, yahooSymbol, category,
