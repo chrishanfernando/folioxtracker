@@ -31,7 +31,7 @@ export const ASSET_MAP: Record<string, AssetInfo> = {
     name: 'iShares Global 100 ETF',
     displayTicker: 'IOO',
     yahooSymbol: 'IOO.AX',
-    category: 'Intl Equities',
+    category: 'World',
     platform: 'Stake',
   },
   'OTCMKTS:TCEHY': {
@@ -39,7 +39,7 @@ export const ASSET_MAP: Record<string, AssetInfo> = {
     name: 'Tencent Holdings Ltd (ADR)',
     displayTicker: 'TCEHY',
     yahooSymbol: 'TCEHY',
-    category: 'Emerging Markets',
+    category: 'China',
     platform: 'Stake',
   },
 };
