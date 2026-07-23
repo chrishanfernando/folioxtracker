@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
     const isPreview = formData.get('preview') === 'true';
 
     const buffer = await file.arrayBuffer();
-    const parsed = parseStakeXlsx(buffer);
+    const { transactions: parsed, unknown } = parseStakeXlsx(buffer);
 
-    if (parsed.length === 0) {
+    if (parsed.length === 0 && unknown.length === 0) {
       return NextResponse.json({ error: 'No buy/sell transactions found in Stake file' }, { status: 400 });
     }
 
@@ -103,11 +103,22 @@ export async function POST(request: NextRequest) {
       imported++;
     }
 
+    // Surface rows whose ticker could not be mapped to a canonical symbol so
+    // they don't silently vanish — they are skipped, not imported.
+    const unknownTickers = [...new Set(unknown.map(u => u.stakeTicker))];
     if (isPreview) {
+      for (const u of unknown) {
+        previewRows.push({
+          date: u.date, ticker: u.stakeTicker, action: u.action,
+          quantity: u.quantity, unitPrice: u.unitPriceLocal, total: u.totalLocal,
+          status: 'unknown',
+        });
+      }
       return NextResponse.json({
         preview: true, rows: previewRows, newAssets,
-        summary: { new: imported, duplicates: skipped, corrections: corrected },
+        summary: { new: imported, duplicates: skipped, corrections: corrected, unknown: unknown.length },
         tickers: [...new Set(parsed.map(t => t.stakeTicker))],
+        unknownTickers,
       });
     }
 
@@ -116,6 +127,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true, transactions: imported, assets: assetIdMap.size,
       skipped, corrected, tickers: [...new Set(parsed.map(t => t.stakeTicker))],
+      unknownTickers,
     });
   } catch (error) {
     console.error('Stake import error:', error);

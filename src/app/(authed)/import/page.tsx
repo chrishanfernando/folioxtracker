@@ -26,14 +26,15 @@ interface PreviewRow {
   quantity: number;
   unitPrice: number;
   total: number;
-  status: 'new' | 'duplicate' | 'correction';
+  status: 'new' | 'duplicate' | 'correction' | 'unknown';
 }
 
 interface PreviewData {
   rows: PreviewRow[];
   newAssets: string[];
-  summary: { new: number; duplicates: number; corrections: number };
+  summary: { new: number; duplicates: number; corrections: number; unknown?: number };
   tickers: string[];
+  unknownTickers?: string[];
   warning?: string;
   prices?: number;
 }
@@ -48,6 +49,7 @@ function PreviewTable({ preview, onConfirm, onCancel, confirming }: {
     new: 'bg-green-500/10 text-gain border-green-500/30',
     duplicate: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30',
     correction: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+    unknown: 'bg-red-500/10 text-loss border-red-500/30',
   };
 
   return (
@@ -59,10 +61,21 @@ function PreviewTable({ preview, onConfirm, onCancel, confirming }: {
         </div>
       )}
 
+      {(preview.summary.unknown ?? 0) > 0 && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center gap-2 text-sm">
+          <AlertTriangle className="h-4 w-4 text-loss shrink-0" />
+          <span className="text-loss">
+            {preview.summary.unknown} row{(preview.summary.unknown ?? 0) === 1 ? '' : 's'} skipped — unmapped ticker
+            {(preview.unknownTickers?.length ?? 0) > 0 ? `: ${preview.unknownTickers!.join(', ')}` : ''}. Add {(preview.unknownTickers?.length ?? 0) === 1 ? 'it' : 'them'} to the ticker map to import.
+          </span>
+        </div>
+      )}
+
       <div className="flex gap-4 text-sm">
         <span className="text-gain font-medium">{preview.summary.new} new</span>
         {preview.summary.duplicates > 0 && <span className="text-yellow-500 font-medium">{preview.summary.duplicates} duplicates</span>}
         {preview.summary.corrections > 0 && <span className="text-blue-500 font-medium">{preview.summary.corrections} corrections</span>}
+        {(preview.summary.unknown ?? 0) > 0 && <span className="text-loss font-medium">{preview.summary.unknown} unmapped</span>}
         {preview.newAssets.length > 0 && <span className="text-muted-foreground">New assets: {preview.newAssets.join(', ')}</span>}
         {(preview.prices ?? 0) > 0 && <span className="text-muted-foreground">{preview.prices} prices</span>}
       </div>
