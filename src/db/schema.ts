@@ -186,3 +186,26 @@ export const cmcAccountMappings = sqliteTable('cmc_account_mappings', {
   label: text('label'),
   verified: integer('verified', { mode: 'boolean' }).notNull().default(false),
 });
+
+// User-supplied, profile-scoped resolution of a broker's source ticker to a
+// canonical asset. Takes precedence over the code seed maps in ticker-map.ts so
+// unmapped import tickers can be resolved from the UI without a redeploy. The
+// asset metadata is stored so the importer can create the asset on confirm when
+// it does not yet exist; existing assets are matched by (symbol, profile_id).
+export const tickerOverrides = sqliteTable('ticker_overrides', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  profileId: integer('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  // Importer source: 'stake' | 'cmc' | 'swyftx' | 'ir' | 'excel'.
+  source: text('source').notNull(),
+  // The raw ticker as it appears in the broker export (e.g. 'BRK.B', 'IOO.ASX').
+  sourceTicker: text('source_ticker').notNull(),
+  symbol: text('symbol').notNull(),
+  name: text('name').notNull(),
+  displayTicker: text('display_ticker').notNull(),
+  yahooSymbol: text('yahoo_symbol').notNull(),
+  category: text('category').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => [
+  uniqueIndex('ticker_overrides_profile_source_ticker_idx').on(table.profileId, table.source, table.sourceTicker),
+]);

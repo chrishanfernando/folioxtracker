@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,11 +39,123 @@ interface PreviewData {
   prices?: number;
 }
 
-function PreviewTable({ preview, onConfirm, onCancel, confirming }: {
+interface ExistingAsset { symbol: string; name: string; displayTicker: string; yahooSymbol: string; category: string }
+
+// Suggest a canonical mapping for an unmapped source ticker. Stake ASX tickers
+// carry a ".ASX" suffix; bare tickers are assumed US (NASDAQ), with the Yahoo
+// symbol using "-" for "." (e.g. BRK.B → BRK-B).
+function suggestMapping(source: string, sourceTicker: string) {
+  if (source === 'stake' && sourceTicker.endsWith('.ASX')) {
+    const t = sourceTicker.replace('.ASX', '');
+    return { symbol: `ASX:${t}`, displayTicker: t, yahooSymbol: `${t}.AX` };
+  }
+  return { symbol: `NASDAQ:${sourceTicker}`, displayTicker: sourceTicker, yahooSymbol: sourceTicker.replace(/\./g, '-') };
+}
+
+// Inline form to resolve one unmapped ticker to a canonical asset. Saving
+// persists a profile-scoped override; the caller re-runs the preview so the
+// row re-resolves.
+function TickerMapForm({ source, sourceTicker, onSaved }: { source: string; sourceTicker: string; onSaved: () => void }) {
+  const { profileFetch } = useProfile();
+  const s = suggestMapping(source, sourceTicker);
+  const [symbol, setSymbol] = useState(s.symbol);
+  const [name, setName] = useState('');
+  const [displayTicker, setDisplayTicker] = useState(s.displayTicker);
+  const [yahooSymbol, setYahooSymbol] = useState(s.yahooSymbol);
+  const [category, setCategory] = useState('');
+  const [verified, setVerified] = useState(false);
+  const [busy, setBusy] = useState<'verify' | 'save' | null>(null);
+  const [assets, setAssets] = useState<ExistingAsset[]>([]);
+
+  useEffect(() => {
+    profileFetch('/api/assets').then(r => r.json()).then((a) => Array.isArray(a) && setAssets(a)).catch(() => {});
+  }, [profileFetch]);
+
+  // An existing asset with the same Yahoo symbol → offer to reuse it rather
+  // than mint a duplicate under a different exchange namespace.
+  const match = assets.find(a => a.yahooSymbol.toLowerCase() === yahooSymbol.trim().toLowerCase());
+
+  async function verify() {
+    setBusy('verify');
+    try {
+      const res = await profileFetch('/api/import/ticker-override/validate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yahooSymbol: yahooSymbol.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) { setVerified(true); toast.success(`${yahooSymbol} verified · $${data.priceAud.toFixed(2)}`); }
+      else { setVerified(false); toast.error(data.error || 'Could not verify symbol'); }
+    } catch { toast.error('Could not verify symbol'); }
+    finally { setBusy(null); }
+  }
+
+  async function save() {
+    setBusy('save');
+    try {
+      const res = await profileFetch('/api/import/ticker-override', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, sourceTicker, symbol: symbol.trim(), name: name.trim(), displayTicker: displayTicker.trim(), yahooSymbol: yahooSymbol.trim(), category: category.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) { toast.success(`Mapped ${sourceTicker} → ${symbol}`); onSaved(); }
+      else { toast.error(data.error || 'Could not save mapping'); }
+    } catch { toast.error('Could not save mapping'); }
+    finally { setBusy(null); }
+  }
+
+  const inputCls = 'w-full text-xs border rounded px-2 py-1 bg-background';
+  const canSave = symbol.trim() && name.trim() && displayTicker.trim() && yahooSymbol.trim() && category.trim() && busy === null;
+
+  return (
+    <div className="border rounded-lg p-3 space-y-2 bg-muted/20">
+      <div className="text-xs font-medium">Map <span className="font-mono">{sourceTicker}</span></div>
+      {match && (
+        <button
+          type="button"
+          onClick={() => { setSymbol(match.symbol); setName(match.name); setDisplayTicker(match.displayTicker); setCategory(match.category); setYahooSymbol(match.yahooSymbol); }}
+          className="w-full text-left text-[11px] text-blue-500 bg-blue-500/10 border border-blue-500/30 rounded px-2 py-1"
+        >
+          Matches existing asset <span className="font-mono">{match.symbol}</span> ({match.name}) — click to reuse it and avoid a duplicate
+        </button>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-[11px] text-muted-foreground">Symbol
+          <input className={inputCls} value={symbol} onChange={e => setSymbol(e.target.value)} placeholder="NASDAQ:XYZ" />
+        </label>
+        <label className="text-[11px] text-muted-foreground">Category
+          <input className={inputCls} value={category} onChange={e => setCategory(e.target.value)} placeholder="USA / World / China…" />
+        </label>
+        <label className="text-[11px] text-muted-foreground">Name
+          <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="Company / ETF name" />
+        </label>
+        <label className="text-[11px] text-muted-foreground">Display ticker
+          <input className={inputCls} value={displayTicker} onChange={e => setDisplayTicker(e.target.value)} placeholder="XYZ" />
+        </label>
+        <label className="text-[11px] text-muted-foreground col-span-2">Yahoo symbol
+          <div className="flex gap-2">
+            <input className={inputCls} value={yahooSymbol} onChange={e => { setYahooSymbol(e.target.value); setVerified(false); }} placeholder="XYZ" />
+            <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={verify} disabled={busy !== null || !yahooSymbol.trim()}>
+              {busy === 'verify' ? 'Verifying…' : verified ? '✓ Verified' : 'Verify'}
+            </Button>
+          </div>
+        </label>
+      </div>
+      <div className="flex justify-end">
+        <Button size="sm" className="h-7 text-xs" onClick={save} disabled={!canSave}>
+          {busy === 'save' ? 'Saving…' : 'Save mapping'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PreviewTable({ preview, onConfirm, onCancel, confirming, source, onRemapped }: {
   preview: PreviewData;
   onConfirm: () => void;
   onCancel: () => void;
   confirming: boolean;
+  source: string;
+  onRemapped: () => void;
 }) {
   const statusColors: Record<string, string> = {
     new: 'bg-green-500/10 text-gain border-green-500/30',
@@ -62,12 +174,17 @@ function PreviewTable({ preview, onConfirm, onCancel, confirming }: {
       )}
 
       {(preview.summary.unknown ?? 0) > 0 && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center gap-2 text-sm">
-          <AlertTriangle className="h-4 w-4 text-loss shrink-0" />
-          <span className="text-loss">
-            {preview.summary.unknown} row{(preview.summary.unknown ?? 0) === 1 ? '' : 's'} skipped — unmapped ticker
-            {(preview.unknownTickers?.length ?? 0) > 0 ? `: ${preview.unknownTickers!.join(', ')}` : ''}. Add {(preview.unknownTickers?.length ?? 0) === 1 ? 'it' : 'them'} to the ticker map to import.
-          </span>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 space-y-3 text-sm">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-loss shrink-0" />
+            <span className="text-loss">
+              {preview.summary.unknown} row{(preview.summary.unknown ?? 0) === 1 ? '' : 's'} skipped — unmapped ticker
+              {(preview.unknownTickers?.length ?? 0) > 0 ? `: ${preview.unknownTickers!.join(', ')}` : ''}. Map {(preview.unknownTickers?.length ?? 0) === 1 ? 'it' : 'them'} below to import.
+            </span>
+          </div>
+          {(preview.unknownTickers ?? []).map(t => (
+            <TickerMapForm key={t} source={source} sourceTicker={t} onSaved={onRemapped} />
+          ))}
         </div>
       )}
 
@@ -260,6 +377,8 @@ export default function ImportPage() {
               onConfirm={() => handleConfirm(file, url, setResult, setPreview, key, label)}
               onCancel={() => setPreview(null)}
               confirming={importing === key}
+              source={key}
+              onRemapped={() => handlePreview(file, url, setPreview, key)}
             />
           )}
 

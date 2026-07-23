@@ -21,3 +21,17 @@ export const sanitizedString = (maxLen: number) =>
 
 export const optionalString = (maxLen: number) =>
   z.string().trim().max(maxLen).optional();
+
+// Importer sources that can carry a per-profile ticker override.
+export const importSource = z.enum(['stake', 'cmc', 'swyftx', 'ir', 'excel']);
+
+// A user-supplied resolution of a broker's raw ticker to a canonical asset.
+export const tickerOverrideSchema = z.object({
+  source: importSource,
+  sourceTicker: sanitizedString(32),
+  symbol: sanitizedString(32),
+  name: sanitizedString(128),
+  displayTicker: sanitizedString(32),
+  yahooSymbol: sanitizedString(32),
+  category: sanitizedString(64),
+}).strict();
