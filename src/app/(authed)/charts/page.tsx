@@ -181,7 +181,7 @@ export default function ChartsPage() {
                 <ZoomableChart
                   data={filtered}
                   lines={[
-                    { dataKey: 'priceAud', stroke: changePct >= 0 ? '#22c55e' : '#ef4444', strokeWidth: 1.5 },
+                    { dataKey: 'priceAud', stroke: changePct >= 0 ? 'var(--gain)' : 'var(--loss)', strokeWidth: 1.5 },
                   ]}
                   yFormatter={(v) => `$${v.toFixed(0)}`}
                   tooltipFormatter={(v) => [`$${Number(v).toFixed(2)}`, 'Price']}

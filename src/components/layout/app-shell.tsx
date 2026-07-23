@@ -37,6 +37,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setShowMoreMenu(false);
   }, [pathname]);
 
+  // Dismiss the profile menu on outside click or Escape (the hand-rolled
+  // dropdown has no built-in dismissal). Only listens while it's open.
+  useEffect(() => {
+    if (!showProfileMenu) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setShowProfileMenu(false); setRenamingId(null); }
+    }
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest('[data-profile-menu]')) setShowProfileMenu(false);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [showProfileMenu]);
+
   async function logout() {
     if (loggingOut) return;
     setLoggingOut(true);
@@ -102,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Profile Selector */}
-          <div className="px-3 mb-4 relative">
+          <div className="px-3 mb-4 relative" data-profile-menu>
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="w-full flex items-center justify-between px-3 py-2 text-sm rounded-md bg-accent/50 hover:bg-accent transition-colors"
@@ -175,6 +194,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors',
                   pathname.startsWith(item.href)
@@ -250,6 +270,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
               className={cn(
                 'flex flex-col items-center py-2 px-3 text-xs',
                 pathname.startsWith(item.href)
@@ -279,7 +300,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile profile selector - top bar */}
       <div className="md:hidden fixed top-0 inset-x-0 bg-background border-b z-50 px-4 py-2 flex items-center justify-between">
         <span className="text-sm font-semibold">FolioX Tracker</span>
-        <div className="relative">
+        <div className="relative" data-profile-menu>
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-accent/50"

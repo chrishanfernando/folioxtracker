@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -353,12 +355,10 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground mt-1">Leave blank to use your account email ({accountEmail}).</p>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="notifications"
                 checked={emailNotifications}
-                onChange={(e) => setEmailNotifications(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(v) => setEmailNotifications(v === true)}
               />
               <Label htmlFor="notifications">Enable email notifications</Label>
             </div>
@@ -473,16 +473,17 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs">Profile</Label>
-                <select
-                  value={newProfileId}
-                  onChange={e => setNewProfileId(e.target.value)}
-                  className="h-8 w-full rounded border bg-background px-2 text-sm"
-                >
-                  {profiles.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                <Label htmlFor="mapping-profile" className="text-xs">Profile</Label>
+                <Select value={newProfileId} onValueChange={setNewProfileId}>
+                  <SelectTrigger id="mapping-profile" size="sm" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {profiles.map(p => (
+                      <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button size="sm" className="h-8" onClick={addMapping} disabled={!newAccountNumber.trim()}>
                 Add
@@ -503,12 +504,10 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="analyticsOptOut"
                 checked={analyticsOptOut}
-                onChange={(e) => setAnalyticsOptOut(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(v) => setAnalyticsOptOut(v === true)}
               />
               <Label htmlFor="analyticsOptOut">Opt out of anonymised usage analytics</Label>
             </div>
