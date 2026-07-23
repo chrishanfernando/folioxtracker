@@ -136,6 +136,7 @@ export const auth = betterAuth({
         }
         await db.delete(schema.categoryTargets).where(inArray(schema.categoryTargets.profileId, profileIds));
         await db.delete(schema.cmcAccountMappings).where(inArray(schema.cmcAccountMappings.profileId, profileIds));
+        await db.delete(schema.tickerOverrides).where(inArray(schema.tickerOverrides.profileId, profileIds));
         await db.delete(schema.profiles).where(inArray(schema.profiles.id, profileIds));
       },
     },

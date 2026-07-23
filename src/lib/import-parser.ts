@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { ASSET_MAP, INACTIVE_ASSETS, CMC_TICKER_MAP, SWYFTX_TICKER_MAP, IR_TICKER_MAP, resolveStakeTicker, resolveCmcTicker } from './ticker-map';
+import { CMC_TICKER_MAP, SWYFTX_TICKER_MAP, IR_TICKER_MAP, resolveCmcTicker } from './ticker-map';
 
 export interface ParsedTransaction {
   date: string;
@@ -155,9 +155,12 @@ export function parseCmcCsv(text: string): ParsedCmcTransaction[] {
   return transactions;
 }
 
-export interface ParsedStakeTransaction {
+// A fully-computed Stake buy/sell row, tagged with its raw broker ticker.
+// Resolution of `stakeTicker` → canonical asset symbol is deliberately NOT done
+// here: the import route owns it so it can consult profile-scoped DB overrides
+// (which the parser has no access to). See `resolveAssetSymbol` in ticker-map.ts.
+export interface ParsedStakeRow {
   date: string;
-  assetSymbol: string;
   stakeTicker: string;
   action: 'BUY' | 'SELL';
   quantity: number;
@@ -169,26 +172,9 @@ export interface ParsedStakeTransaction {
   feeAud: number | null;
 }
 
-export interface UnknownStakeRow {
-  date: string;
-  stakeTicker: string;
-  action: 'BUY' | 'SELL';
-  quantity: number;
-  unitPriceLocal: number;
-  totalLocal: number;
-  currency: string;
-}
-
-export interface ParsedStakeResult {
-  transactions: ParsedStakeTransaction[];
-  /** Buy/sell rows whose ticker could not be resolved to a canonical symbol. */
-  unknown: UnknownStakeRow[];
-}
-
-export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeResult {
+export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeRow[] {
   const wb = XLSX.read(buffer, { type: 'array' });
-  const transactions: ParsedStakeTransaction[] = [];
-  const unknown: UnknownStakeRow[] = [];
+  const rows_: ParsedStakeRow[] = [];
 
   // Process both Aus and Wall St sheets
   for (const sheetName of ['Aus Equities', 'Wall St Equities']) {
@@ -221,28 +207,12 @@ export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeResult {
 
       const action = side === 'Buy' ? 'BUY' : 'SELL';
 
-      const assetSymbol = resolveStakeTicker(stakeTicker);
-      if (!assetSymbol) {
-        console.warn(`Unknown Stake ticker: ${stakeTicker}`);
-        unknown.push({
-          date: tradeDate,
-          stakeTicker,
-          action,
-          quantity: units,
-          unitPriceLocal: avgPrice,
-          totalLocal: totalValue,
-          currency: isUS ? 'USD' : 'AUD',
-        });
-        continue;
-      }
-
       if (isUS) {
         // Wall St: prices in USD, AUD/USD rate column is USD→AUD multiplier
         const rateStr = String(row[13] || '').replace('$', '');
         const usdToAud = parseFloat(rateStr) || 1;
-        transactions.push({
+        rows_.push({
           date: tradeDate,
-          assetSymbol,
           stakeTicker,
           action,
           quantity: units,
@@ -255,9 +225,8 @@ export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeResult {
         });
       } else {
         // Aus: already in AUD
-        transactions.push({
+        rows_.push({
           date: tradeDate,
-          assetSymbol,
           stakeTicker,
           action,
           quantity: units,
@@ -272,7 +241,7 @@ export function parseStakeXlsx(buffer: ArrayBuffer): ParsedStakeResult {
     }
   }
 
-  return { transactions, unknown };
+  return rows_;
 }
 
 export interface ParsedSwyftxTransaction {

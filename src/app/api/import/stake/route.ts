@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { parseStakeXlsx } from '@/lib/import-parser';
-import { ASSET_MAP, INACTIVE_ASSETS } from '@/lib/ticker-map';
+import { INACTIVE_ASSETS } from '@/lib/ticker-map';
+import { resolveAssetSymbol, ResolvedAsset } from '@/lib/ticker-overrides';
 import { eq, and } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth-helpers';
 import { resolveProfileId } from '@/lib/profile';
@@ -25,52 +26,90 @@ export async function POST(request: NextRequest) {
     const isPreview = formData.get('preview') === 'true';
 
     const buffer = await file.arrayBuffer();
-    const { transactions: parsed, unknown } = parseStakeXlsx(buffer);
+    const parsed = parseStakeXlsx(buffer);
 
-    if (parsed.length === 0 && unknown.length === 0) {
+    if (parsed.length === 0) {
       return NextResponse.json({ error: 'No buy/sell transactions found in Stake file' }, { status: 400 });
     }
 
-    const allAssets = { ...ASSET_MAP, ...INACTIVE_ASSETS };
-    const assetIdMap = new Map<string, number>();
-    const symbols = [...new Set(parsed.map(t => t.assetSymbol))];
+    // Step 1 — resolve each distinct source ticker to a canonical symbol,
+    // consulting profile-scoped DB overrides first, then the code seed maps.
+    const resolutionByTicker = new Map<string, ResolvedAsset | null>();
+    for (const ticker of new Set(parsed.map(t => t.stakeTicker))) {
+      resolutionByTicker.set(ticker, await resolveAssetSymbol('stake', ticker, profileId));
+    }
+
+    // Step 2 — for each resolved symbol, match an existing DB asset by
+    // (symbol, profileId) — even when absent from ASSET_MAP — otherwise create
+    // it from override/seed metadata (on confirm). A symbol that resolves but
+    // has neither an existing asset nor metadata cannot be imported and is
+    // surfaced as unmapped.
+    const assetIdBySymbol = new Map<string, number>();   // existing or created
+    const pendingNewSymbols = new Set<string>();          // creatable, not yet created (preview)
+    const displayBySymbol = new Map<string, string>();
     const newAssets: string[] = [];
+    // Source tickers that cannot resolve to an importable asset.
+    const unmappedTickers = new Set<string>();
 
-    for (const symbol of symbols) {
-      const info = allAssets[symbol];
-      if (!info) { console.warn(`No asset info for symbol: ${symbol}`); continue; }
+    for (const [ticker, res] of resolutionByTicker) {
+      if (!res) { unmappedTickers.add(ticker); continue; }
+      const { symbol, info } = res;
+      if (assetIdBySymbol.has(symbol) || pendingNewSymbols.has(symbol)) continue;
 
-      const existing = await db.select().from(schema.assets).where(and(eq(schema.assets.symbol, symbol), eq(schema.assets.profileId, profileId)));
+      const existing = await db.select().from(schema.assets)
+        .where(and(eq(schema.assets.symbol, symbol), eq(schema.assets.profileId, profileId)))
+        .limit(1);
       if (existing.length > 0) {
-        assetIdMap.set(symbol, existing[0].id);
+        assetIdBySymbol.set(symbol, existing[0].id);
+        displayBySymbol.set(symbol, existing[0].displayTicker);
+        continue;
+      }
+      if (!info) { unmappedTickers.add(ticker); continue; }
+
+      displayBySymbol.set(symbol, info.displayTicker);
+      newAssets.push(info.displayTicker);
+      if (isPreview) {
+        pendingNewSymbols.add(symbol);
       } else {
-        newAssets.push(info.displayTicker);
-        if (!isPreview) {
-          const isActive = symbol in ASSET_MAP;
-          const result = await db.insert(schema.assets).values({
-            symbol: info.symbol, name: info.name, displayTicker: info.displayTicker,
-            yahooSymbol: info.yahooSymbol, category: info.category, platform: info.platform,
-            isActive, profileId, merBps: lookupMerBps(info.yahooSymbol),
-          }).returning();
-          assetIdMap.set(symbol, result[0].id);
-        }
+        const isActive = !(symbol in INACTIVE_ASSETS);
+        const result = await db.insert(schema.assets).values({
+          symbol: info.symbol, name: info.name, displayTicker: info.displayTicker,
+          yahooSymbol: info.yahooSymbol, category: info.category, platform: info.platform,
+          isActive, profileId, merBps: lookupMerBps(info.yahooSymbol),
+        }).returning();
+        assetIdBySymbol.set(symbol, result[0].id);
       }
     }
 
     const previewRows: { date: string; ticker: string; action: string; quantity: number; unitPrice: number; total: number; status: string }[] = [];
     let imported = 0;
     let skipped = 0;
+    let unknownRows = 0;
     const corrected = 0;
 
     for (const tx of parsed) {
-      const assetId = assetIdMap.get(tx.assetSymbol);
-      const ticker = allAssets[tx.assetSymbol]?.displayTicker || tx.stakeTicker;
+      const res = resolutionByTicker.get(tx.stakeTicker);
+      const symbol = res?.symbol;
+      const importable = !!symbol && (assetIdBySymbol.has(symbol) || pendingNewSymbols.has(symbol));
 
-      if (!assetId) {
+      if (!importable) {
+        // Unmapped — surfaced, never imported.
+        unknownRows++;
+        if (isPreview) {
+          previewRows.push({ date: tx.date, ticker: tx.stakeTicker, action: tx.action, quantity: tx.quantity, unitPrice: tx.unitPriceAud, total: tx.totalAud, status: 'unknown' });
+        }
+        continue;
+      }
+
+      const ticker = displayBySymbol.get(symbol!) || tx.stakeTicker;
+      const assetId = assetIdBySymbol.get(symbol!);
+
+      // Preview of a to-be-created asset: no existing rows, so every row is new.
+      if (assetId === undefined) {
         if (isPreview) {
           previewRows.push({ date: tx.date, ticker, action: tx.action, quantity: tx.quantity, unitPrice: tx.unitPriceAud, total: tx.totalAud, status: 'new' });
-          imported++;
         }
+        imported++;
         continue;
       }
 
@@ -103,20 +142,11 @@ export async function POST(request: NextRequest) {
       imported++;
     }
 
-    // Surface rows whose ticker could not be mapped to a canonical symbol so
-    // they don't silently vanish — they are skipped, not imported.
-    const unknownTickers = [...new Set(unknown.map(u => u.stakeTicker))];
+    const unknownTickers = [...unmappedTickers];
     if (isPreview) {
-      for (const u of unknown) {
-        previewRows.push({
-          date: u.date, ticker: u.stakeTicker, action: u.action,
-          quantity: u.quantity, unitPrice: u.unitPriceLocal, total: u.totalLocal,
-          status: 'unknown',
-        });
-      }
       return NextResponse.json({
         preview: true, rows: previewRows, newAssets,
-        summary: { new: imported, duplicates: skipped, corrections: corrected, unknown: unknown.length },
+        summary: { new: imported, duplicates: skipped, corrections: corrected, unknown: unknownRows },
         tickers: [...new Set(parsed.map(t => t.stakeTicker))],
         unknownTickers,
       });
@@ -125,7 +155,7 @@ export async function POST(request: NextRequest) {
     trackAsync(EVENTS.IMPORT_COMPLETED, { userId: user.id, props: { source: 'stake', inserted: imported } });
 
     return NextResponse.json({
-      success: true, transactions: imported, assets: assetIdMap.size,
+      success: true, transactions: imported, assets: assetIdBySymbol.size,
       skipped, corrected, tickers: [...new Set(parsed.map(t => t.stakeTicker))],
       unknownTickers,
     });
