@@ -50,6 +50,46 @@ export const ASSET_MAP: Record<string, AssetInfo> = {
     category: 'USA',
     platform: 'Stake',
   },
+  'NASDAQ:AAPL': {
+    symbol: 'NASDAQ:AAPL',
+    name: 'Apple Inc.',
+    displayTicker: 'AAPL',
+    yahooSymbol: 'AAPL',
+    category: 'USA',
+    platform: 'Stake',
+  },
+  'NASDAQ:GOOG': {
+    symbol: 'NASDAQ:GOOG',
+    name: 'Alphabet Inc. (Class C)',
+    displayTicker: 'GOOG',
+    yahooSymbol: 'GOOG',
+    category: 'USA',
+    platform: 'Stake',
+  },
+  'NASDAQ:GOOGL': {
+    symbol: 'NASDAQ:GOOGL',
+    name: 'Alphabet Inc.',
+    displayTicker: 'GOOGL',
+    yahooSymbol: 'GOOGL',
+    category: 'USA',
+    platform: 'Stake',
+  },
+  'NASDAQ:BIDU': {
+    symbol: 'NASDAQ:BIDU',
+    name: 'Baidu Inc.',
+    displayTicker: 'BIDU',
+    yahooSymbol: 'BIDU',
+    category: 'China',
+    platform: 'Stake',
+  },
+  'NYSE:BABA': {
+    symbol: 'NYSE:BABA',
+    name: 'Alibaba Group',
+    displayTicker: 'BABA',
+    yahooSymbol: 'BABA',
+    category: 'China',
+    platform: 'Stake',
+  },
 };
 
 // Assets that previously appeared in your records but are now closed/delisted.
@@ -61,8 +101,13 @@ export const INACTIVE_ASSETS: Record<string, AssetInfo> = {};
 // Stake uses ".ASX" suffixes for ASX tickers (auto-resolved below) and bare
 // US tickers that need explicit mapping to NASDAQ/NYSE/OTCMKTS.
 export const STAKE_US_TICKER_MAP: Record<string, string> = {
-  'TCEHY': 'OTCMKTS:TCEHY',
+  'AAPL': 'NASDAQ:AAPL',
+  'GOOG': 'NASDAQ:GOOG',
+  'GOOGL': 'NASDAQ:GOOGL',
+  'BIDU': 'NASDAQ:BIDU',
+  'BABA': 'NYSE:BABA',
   'BRK.B': 'NYSE:BRK.B',
+  'TCEHY': 'OTCMKTS:TCEHY',
 };
 
 export function resolveStakeTicker(stakeTicker: string): string | null {
